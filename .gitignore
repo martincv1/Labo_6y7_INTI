@@ -1,0 +1,15 @@
+# Ignorar datos e imágenes pesadas
+**/datos/*
+**/mediciones/*
+*.tif
+*.png
+*.jpg
+
+# Python
+__pycache__/
+*.pyc
+.env
+.venv
+
+# VSCode
+.vscode/
