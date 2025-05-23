@@ -9,6 +9,7 @@
 ### SDK y drivers
 
 - SLM Display SDK V4.1 for Python (solo Windows) (software del fabricante en página de Holoeye)
+- Pluto Configuration Manager V1.13 (Windows)
 - eBUS SDK Python API based on Python 3.11 
 
 ### Sistema operativo
