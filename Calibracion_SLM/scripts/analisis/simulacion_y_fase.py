@@ -154,8 +154,10 @@ def get_interfranja(imagen, remove_Gaussian_profile=False, show=False):
     return np.mean(np.diff(peaks))
 
 
-imagen = simular_imagen(frecuencia=25)
+imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0)
 crop = imagen[90:220, 100:550]
+plt.imshow(imagen)
+plt.show()
 SHOW_CROP1 = False
 if SHOW_CROP1:
     fig, axs = plt.subplots(1, 2, figsize=(8, 8))
@@ -173,7 +175,7 @@ r_shift = 0
 c_shift = 12
 crop2 = imagen[90+r_shift:220+r_shift, 100+c_shift:550+c_shift]
 
-imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
+#imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
 #plt.imshow(imag)
 #plt.show()
 #recorte1 = imag[495:555, 170:570, 0]
@@ -197,7 +199,7 @@ imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
 
 #shift = get_dphi_fft1d(recorte2, recorte1, get_shift=True)
 #print(f"Shift: {shift}")
-run = True
+run = False
 if run:
     shifts = np.zeros(256)
     for i in range(256):
@@ -222,5 +224,10 @@ if run:
     plt.show()
 
 
-df = pd.DataFrame(data = shifts)
-df.to_csv('workdir/fases_9.csv')
+#df = pd.DataFrame(data = shifts)
+#df.to_csv('workdir/fases_9.csv')
+
+prueba = True
+if prueba:
+    imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = np.pi)
+    
