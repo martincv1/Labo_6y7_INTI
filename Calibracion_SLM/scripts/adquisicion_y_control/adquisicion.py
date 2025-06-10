@@ -5,6 +5,7 @@ import lib.PvSampleUtils as psu
 import HEDS
 from hedslib.heds_types import *
 import time
+import pickle
 
 ########################################## Defino funciones de configuración
 BUFFER_COUNT = 1
@@ -190,7 +191,8 @@ decompression_filter = eb.PvDecompressionFilter()
 
 ##########################################
 
-intensidades_array = np.arange(256)
+intensidades_array = np.arange(0, 255, 25)
+print(intensidades_array)
 #Inicializo el SLM
 # Init HOLOEYE SLM Display SDK and make sure to check for the correct version this script was written with:
 err = HEDS.SDK.Init(4,0)
@@ -202,10 +204,15 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 
 #Este es el bucle de medición
 resol_SLM = (1080, 1920)
-time.sleep(120)
-fecha = 3004
+segundos = 120
+print(f'Espero {segundos} antes de empezar')
+time.sleep(segundos)
+fecha = '0506'
+T_dia = 22
+cant_muestras = 3
 for i in intensidades_array:
-    for j in range(10):
+    lista_promedio = []
+    for j in range(cant_muestras):
         print(f"Mostrando patrón con intensidad: {i}")
         patron = crear_patron(resol_SLM, "horizontal", "sup", i )
         #np.save(f"patrones/patron_{idx:03d}.npy", patron)    # va a guardar cada patron como archivo.npy en la carpeta patrones
@@ -235,7 +242,9 @@ for i in intensidades_array:
             print(f"  W: {image.GetWidth()} H: {image.GetHeight()} ", end='')
             image_data = image.GetDataPointer()
             #guardar imagen
-            cv2.imwrite(f'fotos/{fecha}_I{i}_{j}_T22.png', image_data)
+            image_data = image_data[:,:,0]
+            lista_promedio.append(image_data)
+            
 
         #print(f" {frame_rate_val:.1f} FPS  {bandwidth_val / 1000000.0:.1f} Mb/s     ", end='\r')
         
@@ -243,6 +252,13 @@ for i in intensidades_array:
         stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
         
         doodle_index = (doodle_index + 1) % 6
+    if cant_muestras ==1:
+        cv2.imwrite(f'fotos/{fecha}_I{i}_T{T_dia}.png', image_data)
+    else:
+        arr = np.stack(lista_promedio, axis = 2)
+        image_data_prom = np.mean(arr, axis = 2)
+        with open(f'fotos/pik/{fecha}_I{i}_T{T_dia}.pkl', 'wb') as f:
+            pickle.dump(image_data_prom, f)
 
 # Acá se cierra el while
 
