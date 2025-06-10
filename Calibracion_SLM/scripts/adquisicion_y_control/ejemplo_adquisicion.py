@@ -1,13 +1,14 @@
 #Importo librerias
 import numpy as np
 import eBUS as eb
-from document.lib import PvSampleUtils as psu
-from document import HEDS
-from document.hedslib.heds_types import *
 import time
 import pickle
 import os 
+import warnings
 
+import lib.PvSampleUtils as psu
+import HEDS
+from hedslib.heds_types import *
 ########################################## Defino funciones de configuración
 BUFFER_COUNT = 1
 
@@ -132,10 +133,16 @@ def get_data(payload_type):
 def buffer_check(result, operational_result):
     if not result.IsOK():
         print(f"{doodle[ doodle_index ]} {result.GetCodeString()}      ", end='\r')
-        raise Exception("Buffer no adquirido")
+        #raise Exception("Buffer no adquirido")
+        warnings.warn('Buffer no adquirido')
+        return False
     if not operational_result.IsOK():
         print(f"{doodle[ doodle_index ]} {operational_result.GetCodeString()}       ", end='\r')
-        raise Exception("Buffer mal adquirido")
+        #raise Exception("Buffer mal adquirido")
+        warnings.warn('Buffer mal adquirido')
+        return False
+    else:
+        return True
 
 # Función que crea el patron escalon
 def crear_patron(resolucion, orientacion, mitad, intensidad):
@@ -192,7 +199,7 @@ decompression_filter = eb.PvDecompressionFilter()
 
 ##########################################
 
-intensidades_array = np.arange(0, 255, 25)
+intensidades_array = np.array([40, 120, 200])
 print(intensidades_array)
 #Inicializo el SLM
 # Init HOLOEYE SLM Display SDK and make sure to check for the correct version this script was written with:
@@ -205,62 +212,85 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 
 #Este es el bucle de medición
 resol_SLM = (1080, 1920)
-segundos = 120
-print(f'Espero {segundos} antes de empezar')
-time.sleep(segundos)
-fecha = '0506'
-T_dia = 22
-cant_muestras = 3
+tiempo_espera_inicial = 0
+print(f'Espero {tiempo_espera_inicial} antes de empezar')
+time.sleep(tiempo_espera_inicial)
+fecha = '1006'
+T_dia = 21
+cant_promedio = 1
+save_dir = r"data\fase_tiempo"
+muestras = 3
+intervalo = 3 #para el sleep entre mediciones
+cant_pruebas_retrieve = 4 
+tiempo_prueba = 0.01
+
+os.makedirs(save_dir, exist_ok = True)
 for i in intensidades_array:
-    lista_promedio = []
-    for j in range(cant_muestras):
-        print(f"Mostrando patrón con intensidad: {i}")
-        patron = crear_patron(resol_SLM, "horizontal", "sup", i )
-        #np.save(f"patrones/patron_{idx:03d}.npy", patron)    # va a guardar cada patron como archivo.npy en la carpeta patrones
-        err, dataHandle = slm.loadImageData(patron)  #carga la data (array) a la video memory del display SLM
-        assert err == HEDSERR_NoError, HEDS.SDK.ErrorString(err)
-        err = dataHandle.show() # Show the returned data handle on the SLM
-        assert err == HEDSERR_NoError, HEDS.SDK.ErrorString(err)
-        time.sleep(0.5)
-        # Retrieve next pvbuffer
-        result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
-        buffer_check(result, operational_result)
-        #
-        # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
-        # -----------------------------------------------------------------------------------------
-        # ...
-        result, frame_rate_val = frame_rate.GetValue()
-        result, bandwidth_val = bandwidth.GetValue()
-        print(f"{doodle[doodle_index]} BlockID: {pvbuffer.GetBlockID():016d}", end='')
-
-        image = None    
-        payload_type = pvbuffer.GetPayloadType()
+    print(f"Mostrando patrón con intensidad: {i}")
+    patron = crear_patron(resol_SLM, "horizontal", "sup", i )
+    #np.save(f"patrones/patron_{idx:03d}.npy", patron)    # va a guardar cada patron como archivo.npy en la carpeta patrones
+    err, dataHandle = slm.loadImageData(patron)  #carga la data (array) a la video memory del display SLM
+    assert err == HEDSERR_NoError, HEDS.SDK.ErrorString(err)
+    err = dataHandle.show() # Show the returned data handle on the SLM
+    assert err == HEDSERR_NoError, HEDS.SDK.ErrorString(err)
+    time.sleep(0.5)
+    result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
+    stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+    for h in range(muestras):
+        print(f"midiendo muestra {h}/{muestras}")
+        lista_promedio = []
+        t_ini = time.time()
         
-        image = get_data(payload_type) # acá consigue la imagen
-
-        if image:
-
-            print(f"  W: {image.GetWidth()} H: {image.GetHeight()} ", end='')
-            image_data = image.GetDataPointer()
-            #guardar imagen
-            image_data = image_data[:,:,0]
-            lista_promedio.append(image_data)
+        for j in range(cant_promedio):
             
+            # Retrieve next pvbuffer
+            pruebas = 0
+            while pruebas <= cant_pruebas_retrieve:
+                result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
+                if buffer_check(result, operational_result):
+                    break
+                time.sleep(tiempo_prueba)
+                prueba += 1
+                
+            #
+            # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
+            # -----------------------------------------------------------------------------------------
+            # ...
+            result, frame_rate_val = frame_rate.GetValue()
+            result, bandwidth_val = bandwidth.GetValue()
+            print(f"{doodle[doodle_index]} BlockID: {pvbuffer.GetBlockID():016d}", end='')
 
-        #print(f" {frame_rate_val:.1f} FPS  {bandwidth_val / 1000000.0:.1f} Mb/s     ", end='\r')
-        
-        # Re-queue the pvbuffer in the stream object
-        stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
-        
-        doodle_index = (doodle_index + 1) % 6
-    if cant_muestras ==1:
-        cv2.imwrite(f'fotos/{fecha}_I{i}_T{T_dia}.png', image_data)
-    else:
-        arr = np.stack(lista_promedio, axis = 2)
-        image_data_prom = np.mean(arr, axis = 2)
-        with open(f'fotos/pik/{fecha}_I{i}_T{T_dia}.pkl', 'wb') as f:
-            pickle.dump(image_data_prom, f)
+            image = None    
+            payload_type = pvbuffer.GetPayloadType()
+            
+            image = get_data(payload_type) # acá consigue la imagen
 
+            if image:
+
+                print(f"  W: {image.GetWidth()} H: {image.GetHeight()} ", end='')
+                image_data = image.GetDataPointer()
+                #guardar imagen
+                #image_data = image_data[:,:,0]
+                lista_promedio.append(image_data)
+                
+
+            #print(f" {frame_rate_val:.1f} FPS  {bandwidth_val / 1000000.0:.1f} Mb/s     ", end='\r')
+            
+            # Re-queue the pvbuffer in the stream object
+            stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+            
+            doodle_index = (doodle_index + 1) % 6
+        hora_actual = time.strftime("%H-%M-%S", time.localtime())
+        file_name = os.path.join(save_dir, f'{fecha}_{hora_actual}_I{i}_T{T_dia}')
+        if cant_promedio ==1:
+            cv2.imwrite(f"{file_name}.png", image_data)
+        else:
+            arr = np.stack(lista_promedio, axis = 2)
+            image_data_prom = np.mean(arr, axis = 2)
+            with open(f"{file_name}.pkl", 'wb') as f:
+                pickle.dump(image_data_prom, f)
+        t_final = time.time()
+        time.sleep(intervalo-(t_final-t_ini))
 # Acá se cierra el while
 
 # Acá se apaga todo
