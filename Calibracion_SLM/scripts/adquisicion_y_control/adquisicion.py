@@ -1,9 +1,9 @@
 #Importo librerias
 import numpy as np
 import eBUS as eb
-from document.lib import PvSampleUtils as psu
-from document import HEDS
-from document.hedslib.heds_types import *
+import lib.PvSampleUtils as psu
+import HEDS
+from hedslib.heds_types import *
 import time
 import pickle
 import os 
