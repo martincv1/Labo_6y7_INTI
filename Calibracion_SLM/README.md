@@ -15,7 +15,7 @@
 ### Sistema operativo
 
 - Windows 10/11 
--Python 3.11.0
+- Python 3.11.0
 
 ### Dependencias de Python
 

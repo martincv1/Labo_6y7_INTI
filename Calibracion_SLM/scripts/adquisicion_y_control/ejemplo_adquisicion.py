@@ -6,6 +6,8 @@ import pickle
 import os 
 import warnings
 
+# En la misma ruta que donde esta el codigo tiene que estar la carpeta HEDS, hedslib y lib. 
+# Tmb hay que instalar con pip install el archivo .whl del ebus
 import lib.PvSampleUtils as psu
 import HEDS
 from hedslib.heds_types import *
@@ -212,17 +214,17 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 
 #Este es el bucle de medición
 resol_SLM = (1080, 1920)
-tiempo_espera_inicial = 0
-print(f'Espero {tiempo_espera_inicial} antes de empezar')
+tiempo_espera_inicial = 120
+print(f'Espero {tiempo_espera_inicial} s antes de empezar')
 time.sleep(tiempo_espera_inicial)
-fecha = '1006'
+fecha = '1106'
 T_dia = 21
-cant_promedio = 1
+cant_promedio = 5
 save_dir = r"data\fase_tiempo"
-muestras = 3
-intervalo = 3 #para el sleep entre mediciones
+muestras = 240
+intervalo = 5 #para el sleep entre mediciones
 cant_pruebas_retrieve = 4 
-tiempo_prueba = 0.01
+tiempo_prueba = 0.05
 
 os.makedirs(save_dir, exist_ok = True)
 for i in intensidades_array:
@@ -250,7 +252,7 @@ for i in intensidades_array:
                 if buffer_check(result, operational_result):
                     break
                 time.sleep(tiempo_prueba)
-                prueba += 1
+                pruebas += 1
                 
             #
             # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
