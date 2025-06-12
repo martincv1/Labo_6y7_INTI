@@ -6,6 +6,8 @@ from scipy.signal import find_peaks
 import cv2
 import interfranja as ifranja
 import pandas as pd
+from scipy.signal import butter, firwin, filtfilt, hilbert
+from scipy.optimize import curve_fit
 
 MINIMUM_DISTANCE_PEAKS = 10
 PROMINENCE_PEAKS = 1
@@ -154,8 +156,9 @@ def get_interfranja(imagen, remove_Gaussian_profile=False, show=False):
     return np.mean(np.diff(peaks))
 
 
-imagen = simular_imagen(frecuencia=25)
+imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0)
 crop = imagen[90:220, 100:550]
+
 SHOW_CROP1 = False
 if SHOW_CROP1:
     fig, axs = plt.subplots(1, 2, figsize=(8, 8))
@@ -173,7 +176,7 @@ r_shift = 0
 c_shift = 12
 crop2 = imagen[90+r_shift:220+r_shift, 100+c_shift:550+c_shift]
 
-imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
+#imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
 #plt.imshow(imag)
 #plt.show()
 #recorte1 = imag[495:555, 170:570, 0]
@@ -197,7 +200,7 @@ imag = cv2.imread('fotos_rot_franjas/3004_I0_0_T22_r_f.png')
 
 #shift = get_dphi_fft1d(recorte2, recorte1, get_shift=True)
 #print(f"Shift: {shift}")
-run = True
+run = False
 if run:
     shifts = np.zeros(256)
     for i in range(256):
@@ -222,5 +225,172 @@ if run:
     plt.show()
 
 
-df = pd.DataFrame(data = shifts)
-df.to_csv('workdir/fases_9.csv')
+#df = pd.DataFrame(data = shifts)
+#df.to_csv('workdir/fases_9.csv')
+fases = np.linspace(0,2*np.pi,256)
+
+prueba = False
+if prueba:
+    c1 = np.zeros(256)
+    c2 = np.zeros(256)
+    m1 = np.zeros(256)
+    m2 = np.zeros(256)
+    def lineal(x,m,c):
+        return m*x+c
+    for i in range(256):
+        imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i])
+        recorte1 = imagen[150:240, 200:500]
+        recorte2 = imagen[320:410, 200:500]
+        
+
+        signal1 = np.sum(recorte1, axis=0)
+        signal2 = np.sum(recorte2, axis=0)
+        
+
+
+
+        f_signal1 = np.fft.fft(signal1 - np.mean(signal1))
+        f_signal2 = np.fft.fft(signal2 - np.mean(signal2))
+        n = len(f_signal1)
+        freq1_ind = np.argmax(np.abs(f_signal1[:n//2]))
+        freq2_ind = np.argmax(np.abs(f_signal2[:n//2]))
+        frecuencias = np.fft.fftfreq(len(signal1), d=1)
+        freq1 = frecuencias[freq1_ind]
+        freq2 = frecuencias[freq2_ind]
+
+        fs = 1.0  # muestras por píxel
+        bandwidth = 0.005  # ancho de banda en ciclos/píxel, ajustable
+        lowcut1 = freq1 - bandwidth
+        highcut1 = freq1 + bandwidth
+
+        lowcut2 = freq2 - bandwidth
+        highcut2 = freq2 + bandwidth
+
+        
+        order = 5
+        nyq = 0.5 * fs
+        low1 = lowcut1 / nyq
+        high1 = highcut1 / nyq
+        low2 = lowcut2 / nyq
+        high2 = highcut2 / nyq
+
+        #b, a = butter(order, [low, high], btype='bandpass')
+
+        numtaps = 20  # cantidad de coeficientes, más alto = más selectivo
+        b1 = firwin(numtaps, [low1, high1], pass_zero=False)
+        b2 = firwin(numtaps, [low2, high2], pass_zero=False)
+
+        filtra1 = filtfilt(b1, [1.0], signal1)
+        filtra2 = filtfilt(b2, [1.0], signal2)
+
+       
+
+        hil1 = hilbert(filtra1)
+        hil2 = hilbert(filtra2)
+        lin1 = np.unwrap(np.angle(hil1))
+        lin2 = np.unwrap(np.angle(hil2))
+    
+        inf = 30
+        sup = 70
+        lin1_ajust = lin1[inf:sup]
+        lin2_ajust = lin2[inf:sup]
+        popt1, pcov1 = curve_fit(lineal, np.arange(inf,sup), lin1_ajust)
+        popt2, pcov2 = curve_fit(lineal, np.arange(inf,sup), lin2_ajust)
+        
+        c1[i] = popt1[1] #guardo los valores de la ordenada al origen
+        c2[i] = popt2[1]
+        m1[i] = popt1[0]
+        m2[i] = popt2[0]
+        print(i)
+    plt.scatter(np.arange(256), np.unwrap(c1))
+    plt.show()
+    plt.plot(m1)
+    plt.plot(m2)
+    plt.show()
+
+
+imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[128])
+recorte1 = imagen[150:240, 200:500]
+recorte2 = imagen[320:410, 200:500]
+
+fig, ax = plt.subplots(1,2)
+ax[0].imshow(recorte1)
+ax[1].imshow(recorte2)
+plt.show()
+
+signal1 = np.sum(recorte1, axis=0)
+signal2 = np.sum(recorte2, axis=0)
+print(len(signal1))
+
+fig, ax = plt.subplots(1,2)
+ax[0].plot(signal1)
+ax[1].plot(signal2)
+plt.show()
+
+f_signal1 = np.fft.fft(signal1 - np.mean(signal1))
+f_signal2 = np.fft.fft(signal2 - np.mean(signal2))
+n = len(np.abs(f_signal1))
+
+
+freq1_ind = np.argmax(np.abs(f_signal1[:n//2]))
+freq2_ind = np.argmax(np.abs(f_signal2[:n//2]))
+frecuencias = np.fft.fftfreq(len(signal1), d=1)
+freq1 = frecuencias[freq1_ind]
+freq2 = frecuencias[freq2_ind]
+
+
+fs = 1.0  # muestras por píxel
+bandwidth = 0.01  # ancho de banda en ciclos/píxel, ajustable
+lowcut1 = freq1 - bandwidth
+highcut1 = freq1 + bandwidth
+
+lowcut2 = freq2 - bandwidth
+highcut2 = freq2 + bandwidth
+
+
+order = 4
+nyq = 0.5 * fs
+low1 = lowcut1 / nyq
+high1 = highcut1 / nyq
+low2 = lowcut2 / nyq
+high2 = highcut2 / nyq
+
+
+
+numtaps = 80  # cantidad de coeficientes, más alto = más selectivo
+b1 = firwin(numtaps, [low1, high1], pass_zero=False)
+b2 = firwin(numtaps, [low2, high2], pass_zero=False)
+
+f_b1 = np.fft.fft(b1, len(signal1))
+f_b2 = np.fft.fft(b2, len(signal2))
+
+plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2]/max(np.abs(f_signal1)[:n//2]))
+plt.axvline(lowcut1, color ='r')
+plt.axvline(highcut1, color ='r')
+plt.plot(frecuencias[:n//2], np.abs(f_b1[:n//2])/max(np.abs(f_b1[:n//2])))
+plt.show()
+
+plt.plot(frecuencias[:n//2], np.abs(f_signal2)[:n//2]/max(np.abs(f_signal2)[:n//2]))
+plt.axvline(lowcut2, color ='r')
+plt.axvline(highcut2, color ='r')
+plt.plot(frecuencias[:n//2], np.abs(f_b2[:n//2])/max(np.abs((f_b2[:n//2]))))
+plt.show()
+
+
+filtra1 = filtfilt(b1, [1.0], signal1)
+filtra2 = filtfilt(b2, [1.0], signal2)
+
+plt.plot(filtra1)
+plt.show()
+
+plt.plot(filtra2)
+plt.show()
+
+hil1 = hilbert(filtra1)
+hil2 = hilbert(filtra2)
+lin1 = np.unwrap(np.angle(hil1))
+lin2 = np.unwrap(np.angle(hil2))
+
+plt.plot(lin1)
+plt.plot(lin2)
+plt.show()
