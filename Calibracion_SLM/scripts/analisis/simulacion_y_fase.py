@@ -228,8 +228,11 @@ if run:
 #df = pd.DataFrame(data = shifts)
 #df.to_csv('workdir/fases_9.csv')
 fases = np.linspace(0,2*np.pi,256)
-
-prueba = False
+#for i in range(256):
+#    imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i])
+#    plt.savefig(f'C:\Users\INTI\Documents\Labo67JM\fotito\foto_{i}.png', imagen)
+#    print(i)
+prueba = True
 if prueba:
     c1 = np.zeros(256)
     c2 = np.zeros(256)
@@ -238,14 +241,15 @@ if prueba:
     def lineal(x,m,c):
         return m*x+c
     for i in range(256):
-        imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i])
+        imagen = simular_imagen(frecuencia=100, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i], amplitud_imperfecciones= 0)
         recorte1 = imagen[150:240, 200:500]
         recorte2 = imagen[320:410, 200:500]
         
 
         signal1 = np.sum(recorte1, axis=0)
         signal2 = np.sum(recorte2, axis=0)
-        
+        signal1 = signal1 - np.mean(signal1)
+        signal2 = signal2 - np.mean(signal2)
 
 
 
@@ -259,7 +263,7 @@ if prueba:
         freq2 = frecuencias[freq2_ind]
 
         fs = 1.0  # muestras por píxel
-        bandwidth = 0.005  # ancho de banda en ciclos/píxel, ajustable
+        bandwidth = 0.01  # ancho de banda en ciclos/píxel, ajustable
         lowcut1 = freq1 - bandwidth
         highcut1 = freq1 + bandwidth
 
@@ -276,7 +280,7 @@ if prueba:
 
         #b, a = butter(order, [low, high], btype='bandpass')
 
-        numtaps = 20  # cantidad de coeficientes, más alto = más selectivo
+        numtaps = 90  # cantidad de coeficientes, más alto = más selectivo
         b1 = firwin(numtaps, [low1, high1], pass_zero=False)
         b2 = firwin(numtaps, [low2, high2], pass_zero=False)
 
@@ -302,14 +306,22 @@ if prueba:
         m1[i] = popt1[0]
         m2[i] = popt2[0]
         print(i)
-    plt.scatter(np.arange(256), np.unwrap(c1))
+    plt.scatter(np.arange(256), c1)
     plt.show()
-    plt.plot(m1)
-    plt.plot(m2)
+    plt.scatter(np.arange(256), c2)
+    plt.show()
+    plt.plot(c1-c2)
+    plt.show()
+    dif = np.unwrap(c1)-np.unwrap(c2)
+    plt.plot(dif)
+    plt.show()
+    plt.plot(m1-m2)
     plt.show()
 
 
-imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[128])
+imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[128], amplitud_imperfecciones=0)
+plt.imshow(imagen)
+plt.show()
 recorte1 = imagen[150:240, 200:500]
 recorte2 = imagen[320:410, 200:500]
 
@@ -357,9 +369,12 @@ high2 = highcut2 / nyq
 
 
 
-numtaps = 80  # cantidad de coeficientes, más alto = más selectivo
+numtaps = 40  # cantidad de coeficientes, más alto = más selectivo
 b1 = firwin(numtaps, [low1, high1], pass_zero=False)
 b2 = firwin(numtaps, [low2, high2], pass_zero=False)
+
+print('b1', np.linalg.norm(b1), 'b2', np.linalg.norm(b2))
+print('b1', np.sum(b1), 'b2', np.sum(b2))
 
 f_b1 = np.fft.fft(b1, len(signal1))
 f_b2 = np.fft.fft(b2, len(signal2))
@@ -377,8 +392,8 @@ plt.plot(frecuencias[:n//2], np.abs(f_b2[:n//2])/max(np.abs((f_b2[:n//2]))))
 plt.show()
 
 
-filtra1 = filtfilt(b1, [1.0], signal1)
-filtra2 = filtfilt(b2, [1.0], signal2)
+filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
+filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
 
 plt.plot(filtra1)
 plt.show()
