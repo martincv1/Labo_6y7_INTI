@@ -7,6 +7,7 @@ from hedslib.heds_types import *
 import time
 import pickle
 import os 
+import warnings
 
 ########################################## Defino funciones de configuración
 BUFFER_COUNT = 1
@@ -132,10 +133,16 @@ def get_data(payload_type):
 def buffer_check(result, operational_result):
     if not result.IsOK():
         print(f"{doodle[ doodle_index ]} {result.GetCodeString()}      ", end='\r')
-        raise Exception("Buffer no adquirido")
+        #raise Exception("Buffer no adquirido")
+        warnings.warn('Buffer no adquirido')
+        return False
     if not operational_result.IsOK():
         print(f"{doodle[ doodle_index ]} {operational_result.GetCodeString()}       ", end='\r')
-        raise Exception("Buffer mal adquirido")
+        #raise Exception("Buffer mal adquirido")
+        warnings.warn('Buffer mal adquirido')
+        return False
+    else:
+        return True
 
 # Función que crea el patron escalon
 def crear_patron(resolucion, orientacion, mitad, intensidad):
@@ -212,9 +219,7 @@ time.sleep(tiempo_espera_inicial)
 fecha = '1306'
 T_dia = 21
 cant_promedio = 5
-save_dir = r"data\fase_tiempo"
-muestras = 240
-intervalo = 5 #para el sleep entre mediciones
+save_dir = r"data\fase_tension"
 cant_pruebas_retrieve = 4 
 tiempo_prueba = 0.05
 
@@ -225,6 +230,7 @@ os.makedirs(save_dir, exist_ok = True)
 
 for i in intensidades_array:
     print(f"Mostrando patrón con intensidad: {i}")
+    lista_promedio = []
     patron = crear_patron(resol_SLM, "horizontal", "sup", i )
     #np.save(f"patrones/patron_{idx:03d}.npy", patron)    # va a guardar cada patron como archivo.npy en la carpeta patrones
     err, dataHandle = slm.loadImageData(patron)  #carga la data (array) a la video memory del display SLM
@@ -234,4 +240,75 @@ for i in intensidades_array:
     time.sleep(0.5)
     result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
     stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+    for j in range(cant_promedio):
+            
+            # Retrieve next pvbuffer
+            pruebas = 0
+            while pruebas <= cant_pruebas_retrieve:
+                result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
+                if buffer_check(result, operational_result):
+                    break
+                stream.QueueBuffer(pvbuffer) 
+                time.sleep(tiempo_prueba)
+                pruebas += 1
+                
+            #
+            # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
+            # -----------------------------------------------------------------------------------------
+            # ...
+            result, frame_rate_val = frame_rate.GetValue()
+            result, bandwidth_val = bandwidth.GetValue()
+            print(f"{doodle[doodle_index]} BlockID: {pvbuffer.GetBlockID():016d}", end='')
+
+            image = None    
+            payload_type = pvbuffer.GetPayloadType()
+            
+            image = get_data(payload_type) # acá consigue la imagen
+
+            if image:
+
+                image_data = image.GetDataPointer()
+                #guardar imagen
+                #image_data = image_data[:,:,0]
+                lista_promedio.append(image_data)
+                
+
+                        
+            # Re-queue the pvbuffer in the stream object
+            stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+            
+            doodle_index = (doodle_index + 1) % 6
+    file_name = os.path.join(save_dir, f'{fecha}_I{i}_T{T_dia}')
+    if cant_promedio ==1:
+            cv2.imwrite(f"{file_name}.png", image_data)
+    else:
+            arr = np.stack(lista_promedio, axis = 2)
+            image_data_prom = np.mean(arr, axis = 2)
+            with open(f"{file_name}.pkl", 'wb') as f:
+                pickle.dump(image_data_prom, f)
+# Acá se cierra el while
     
+
+
+
+
+
+
+
+
+
+# Acá se apaga todo
+
+# Tell the device to stop sending images.
+print("\nSending AcquisitionStop command to the device")
+stop.Execute()
+
+# Disable streaming on the device
+print("Disable streaming on the controller.")
+device.StreamDisable()
+
+# Abort all buffers from the stream and dequeue
+print("Aborting buffers still in stream")
+stream.AbortQueuedBuffers()
+while stream.GetQueuedBufferCount() > 0:
+    result, pvbuffer, lOperationalResult = stream.RetrieveBuffer()
