@@ -6,6 +6,8 @@ import pickle
 import os 
 import warnings
 
+# En la misma ruta que donde esta el codigo tiene que estar la carpeta HEDS, hedslib y lib. 
+# Tmb hay que instalar con pip install el archivo .whl del ebus
 import lib.PvSampleUtils as psu
 import HEDS
 from hedslib.heds_types import *
