@@ -280,7 +280,7 @@ if prueba:
 
         #b, a = butter(order, [low, high], btype='bandpass')
 
-        numtaps = 90  # cantidad de coeficientes, más alto = más selectivo
+        numtaps = 90   # cantidad de coeficientes, más alto = más selectivo
         b1 = firwin(numtaps, [low1, high1], pass_zero=False)
         b2 = firwin(numtaps, [low2, high2], pass_zero=False)
 

@@ -4,6 +4,7 @@
 *.tif
 *.png
 *.jpg
+*.pkl
 
 # Python
 __pycache__/
