@@ -214,10 +214,10 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 
 #Este es el bucle de medición
 resol_SLM = (1080, 1920)
-tiempo_espera_inicial = 120
+tiempo_espera_inicial = 180
 print(f'Espero {tiempo_espera_inicial} s antes de empezar')
 time.sleep(tiempo_espera_inicial)
-fecha = '1106'
+fecha = '1206'
 T_dia = 21
 cant_promedio = 5
 save_dir = r"data\fase_tiempo"
@@ -251,6 +251,7 @@ for i in intensidades_array:
                 result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
                 if buffer_check(result, operational_result):
                     break
+                stream.QueueBuffer(pvbuffer) 
                 time.sleep(tiempo_prueba)
                 pruebas += 1
                 
