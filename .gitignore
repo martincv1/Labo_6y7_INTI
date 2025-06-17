@@ -5,6 +5,7 @@
 *.png
 *.jpg
 *.pkl
+*.csv
 
 # Python
 __pycache__/
