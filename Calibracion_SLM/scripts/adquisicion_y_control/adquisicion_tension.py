@@ -56,10 +56,10 @@ for i in intensidades_array:
 
     file_name = os.path.join(save_dir, f'{fecha}_I{i}_T{T_dia}')
     if cant_promedio == 1:
-        frame = jai_camera.get_frame(camera)        
+        frame = camera.get_frame()
         cv2.imwrite(f'{file_name}.png', frame)
     else:
-        frame = jai_camera.get_average_frame(camera, cant_promedio)
+        frame = camera.get_average_frame(cant_promedio)
         with open(f'{file_name}.pkl', 'wb') as f:
             pickle.dump(frame, f)
 
