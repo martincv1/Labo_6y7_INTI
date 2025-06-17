@@ -6,7 +6,7 @@ from scipy.signal import find_peaks
 import cv2
 import interfranja as ifranja
 import pandas as pd
-from scipy.signal import butter, firwin, filtfilt, hilbert
+from scipy.signal import butter, firwin, filtfilt, hilbert, lfilter
 from scipy.optimize import curve_fit
 
 MINIMUM_DISTANCE_PEAKS = 10
@@ -227,11 +227,27 @@ if run:
 
 #df = pd.DataFrame(data = shifts)
 #df.to_csv('workdir/fases_9.csv')
+#signals1 = {}
+#signals2 = {}
 fases = np.linspace(0,2*np.pi,256)
 #for i in range(256):
-#    imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i])
-#    plt.savefig(f'C:\Users\INTI\Documents\Labo67JM\fotito\foto_{i}.png', imagen)
+#    imagen = simular_imagen(frecuencia=100, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i], amplitud_imperfecciones= 0)
+#    recorte1 = imagen[150:240, 200:500]
+#    recorte2 = imagen[320:410, 200:500]
+#    signal1 = np.sum(recorte1, axis=0)
+#    signal2 = np.sum(recorte2, axis=0)
+#    signals1[f'{i}'] = signal1
+#    signals2[f'{i}'] = signal2
 #    print(i)
+
+#df_signal1 = pd.DataFrame(signals1)
+#df_signal2 = pd.DataFrame(signals2)
+#print(df_signal1)
+#df_signal1.to_csv('Calibracion_SLM\\data\\signal1.csv')
+#df_signal2.to_csv('Calibracion_SLM\\data\\signal2.csv')
+signals1 = pd.read_csv('Calibracion_SLM\\data\\signal1.csv')
+signals2 = pd.read_csv('Calibracion_SLM\\data\\signal2.csv')
+
 prueba = True
 if prueba:
     c1 = np.zeros(256)
@@ -241,16 +257,21 @@ if prueba:
     def lineal(x,m,c):
         return m*x+c
     for i in range(256):
-        imagen = simular_imagen(frecuencia=100, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i], amplitud_imperfecciones= 0)
-        recorte1 = imagen[150:240, 200:500]
-        recorte2 = imagen[320:410, 200:500]
+        #imagen = simular_imagen(frecuencia=100, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i], amplitud_imperfecciones= 0)
+        #recorte1 = imagen[150:240, 200:500]
+        #recorte2 = imagen[320:410, 200:500]
         
 
-        signal1 = np.sum(recorte1, axis=0)
-        signal2 = np.sum(recorte2, axis=0)
+        #signal1 = np.sum(recorte1, axis=0)
+        #signal2 = np.sum(recorte2, axis=0)
+        signal1 = np.array(signals1[f'{i}'])
+        signal2 = np.array(signals2[f'{i}'])
         signal1 = signal1 - np.mean(signal1)
         signal2 = signal2 - np.mean(signal2)
-
+        #plt.plot(signal1)
+        #plt.plot(signal2)
+        #plt.pause(.01)
+        #plt.cla()
 
 
         f_signal1 = np.fft.fft(signal1 - np.mean(signal1))
@@ -284,9 +305,10 @@ if prueba:
         b1 = firwin(numtaps, [low1, high1], pass_zero=False)
         b2 = firwin(numtaps, [low2, high2], pass_zero=False)
 
-        filtra1 = filtfilt(b1, [1.0], signal1)
-        filtra2 = filtfilt(b2, [1.0], signal2)
-
+        #filtra1 = filtfilt(b1, [1.0], signal1)
+        #filtra2 = filtfilt(b2, [1.0], signal2)
+        filtra1 = lfilter(b1, [1.0], signal1)
+        filtra2 = lfilter(b2, [1.0], signal2)
        
 
         hil1 = hilbert(filtra1)
@@ -315,97 +337,102 @@ if prueba:
     dif = np.unwrap(c1)-np.unwrap(c2)
     plt.plot(dif)
     plt.show()
-    plt.plot(m1-m2)
+    plt.plot(m1-m2, label = f'{np.max(np.abs(m1-m2))}')
+    plt.legend()
+    plt.show()
+    f_err = np.abs(np.fft.fft(m1-m2))
+    nn = len(f_err)
+    plt.plot(f_err[:n//2])
+    print(np.argmax(f_err[:n//2]))
+    plt.show()
+else :
+    imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[128], amplitud_imperfecciones=0)
+    plt.imshow(imagen)
+    plt.show()
+    recorte1 = imagen[150:240, 200:500]
+    recorte2 = imagen[320:410, 200:500]
+
+    fig, ax = plt.subplots(1,2)
+    ax[0].imshow(recorte1)
+    ax[1].imshow(recorte2)
+    plt.show()
+
+    signal1 = np.sum(recorte1, axis=0)
+    signal2 = np.sum(recorte2, axis=0)
+    print(len(signal1))
+
+    fig, ax = plt.subplots(1,2)
+    ax[0].plot(signal1)
+    ax[1].plot(signal2)
+    plt.show()
+
+    f_signal1 = np.fft.fft(signal1 - np.mean(signal1))
+    f_signal2 = np.fft.fft(signal2 - np.mean(signal2))
+    n = len(np.abs(f_signal1))
+
+
+    freq1_ind = np.argmax(np.abs(f_signal1[:n//2]))
+    freq2_ind = np.argmax(np.abs(f_signal2[:n//2]))
+    frecuencias = np.fft.fftfreq(len(signal1), d=1)
+    freq1 = frecuencias[freq1_ind]
+    freq2 = frecuencias[freq2_ind]
+
+
+    fs = 1.0  # muestras por píxel
+    bandwidth = 0.01  # ancho de banda en ciclos/píxel, ajustable
+    lowcut1 = freq1 - bandwidth
+    highcut1 = freq1 + bandwidth
+
+    lowcut2 = freq2 - bandwidth
+    highcut2 = freq2 + bandwidth
+
+
+    order = 4
+    nyq = 0.5 * fs
+    low1 = lowcut1 / nyq
+    high1 = highcut1 / nyq
+    low2 = lowcut2 / nyq
+    high2 = highcut2 / nyq
+
+
+
+    numtaps = 40  # cantidad de coeficientes, más alto = más selectivo
+    b1 = firwin(numtaps, [low1, high1], pass_zero=False)
+    b2 = firwin(numtaps, [low2, high2], pass_zero=False)
+
+    print('b1', np.linalg.norm(b1), 'b2', np.linalg.norm(b2))
+    print('b1', np.sum(b1), 'b2', np.sum(b2))
+
+    f_b1 = np.fft.fft(b1, len(signal1))
+    f_b2 = np.fft.fft(b2, len(signal2))
+
+    plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2]/max(np.abs(f_signal1)[:n//2]))
+    plt.axvline(lowcut1, color ='r')
+    plt.axvline(highcut1, color ='r')
+    plt.plot(frecuencias[:n//2], np.abs(f_b1[:n//2])/max(np.abs(f_b1[:n//2])))
+    plt.show()
+
+    plt.plot(frecuencias[:n//2], np.abs(f_signal2)[:n//2]/max(np.abs(f_signal2)[:n//2]))
+    plt.axvline(lowcut2, color ='r')
+    plt.axvline(highcut2, color ='r')
+    plt.plot(frecuencias[:n//2], np.abs(f_b2[:n//2])/max(np.abs((f_b2[:n//2]))))
     plt.show()
 
 
-imagen = simular_imagen(frecuencia=50, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[128], amplitud_imperfecciones=0)
-plt.imshow(imagen)
-plt.show()
-recorte1 = imagen[150:240, 200:500]
-recorte2 = imagen[320:410, 200:500]
+    filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
+    filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
 
-fig, ax = plt.subplots(1,2)
-ax[0].imshow(recorte1)
-ax[1].imshow(recorte2)
-plt.show()
+    plt.plot(filtra1)
+    plt.show()
 
-signal1 = np.sum(recorte1, axis=0)
-signal2 = np.sum(recorte2, axis=0)
-print(len(signal1))
+    plt.plot(filtra2)
+    plt.show()
 
-fig, ax = plt.subplots(1,2)
-ax[0].plot(signal1)
-ax[1].plot(signal2)
-plt.show()
+    hil1 = hilbert(filtra1)
+    hil2 = hilbert(filtra2)
+    lin1 = np.unwrap(np.angle(hil1))
+    lin2 = np.unwrap(np.angle(hil2))
 
-f_signal1 = np.fft.fft(signal1 - np.mean(signal1))
-f_signal2 = np.fft.fft(signal2 - np.mean(signal2))
-n = len(np.abs(f_signal1))
-
-
-freq1_ind = np.argmax(np.abs(f_signal1[:n//2]))
-freq2_ind = np.argmax(np.abs(f_signal2[:n//2]))
-frecuencias = np.fft.fftfreq(len(signal1), d=1)
-freq1 = frecuencias[freq1_ind]
-freq2 = frecuencias[freq2_ind]
-
-
-fs = 1.0  # muestras por píxel
-bandwidth = 0.01  # ancho de banda en ciclos/píxel, ajustable
-lowcut1 = freq1 - bandwidth
-highcut1 = freq1 + bandwidth
-
-lowcut2 = freq2 - bandwidth
-highcut2 = freq2 + bandwidth
-
-
-order = 4
-nyq = 0.5 * fs
-low1 = lowcut1 / nyq
-high1 = highcut1 / nyq
-low2 = lowcut2 / nyq
-high2 = highcut2 / nyq
-
-
-
-numtaps = 40  # cantidad de coeficientes, más alto = más selectivo
-b1 = firwin(numtaps, [low1, high1], pass_zero=False)
-b2 = firwin(numtaps, [low2, high2], pass_zero=False)
-
-print('b1', np.linalg.norm(b1), 'b2', np.linalg.norm(b2))
-print('b1', np.sum(b1), 'b2', np.sum(b2))
-
-f_b1 = np.fft.fft(b1, len(signal1))
-f_b2 = np.fft.fft(b2, len(signal2))
-
-plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2]/max(np.abs(f_signal1)[:n//2]))
-plt.axvline(lowcut1, color ='r')
-plt.axvline(highcut1, color ='r')
-plt.plot(frecuencias[:n//2], np.abs(f_b1[:n//2])/max(np.abs(f_b1[:n//2])))
-plt.show()
-
-plt.plot(frecuencias[:n//2], np.abs(f_signal2)[:n//2]/max(np.abs(f_signal2)[:n//2]))
-plt.axvline(lowcut2, color ='r')
-plt.axvline(highcut2, color ='r')
-plt.plot(frecuencias[:n//2], np.abs(f_b2[:n//2])/max(np.abs((f_b2[:n//2]))))
-plt.show()
-
-
-filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
-filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
-
-plt.plot(filtra1)
-plt.show()
-
-plt.plot(filtra2)
-plt.show()
-
-hil1 = hilbert(filtra1)
-hil2 = hilbert(filtra2)
-lin1 = np.unwrap(np.angle(hil1))
-lin2 = np.unwrap(np.angle(hil2))
-
-plt.plot(lin1)
-plt.plot(lin2)
-plt.show()
+    plt.plot(lin1)
+    plt.plot(lin2)
+    plt.show()
