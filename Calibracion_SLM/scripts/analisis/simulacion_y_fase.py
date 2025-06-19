@@ -254,7 +254,7 @@ if prueba:
     c2 = np.zeros(256)
     m1 = np.zeros(256)
     m2 = np.zeros(256)
-    def lineal(x,m,c):
+    def lineal(x, m, c):
         return m*x+c
     for i in range(256):
         #imagen = simular_imagen(frecuencia=100, angulo_franjas_max=0, angulo_slm_max= 0, fase2 = fases[i], amplitud_imperfecciones= 0)
@@ -292,7 +292,6 @@ if prueba:
         highcut2 = freq2 + bandwidth
 
         
-        order = 5
         nyq = 0.5 * fs
         low1 = lowcut1 / nyq
         high1 = highcut1 / nyq
@@ -307,9 +306,14 @@ if prueba:
 
         #filtra1 = filtfilt(b1, [1.0], signal1)
         #filtra2 = filtfilt(b2, [1.0], signal2)
-        filtra1 = lfilter(b1, [1.0], signal1)
-        filtra2 = lfilter(b2, [1.0], signal2)
-       
+        f_bandwidth = 0.01
+        gauss_mask1 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+        gauss_mask2 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+        fft_filtrada1 = f_signal1 * gauss_mask1
+        fft_filtrada2 = f_signal2 * gauss_mask2
+        filtra1 = np.fft.ifft(fft_filtrada1).real
+        filtra2 = np.fft.ifft(fft_filtrada2).real
+
 
         hil1 = hilbert(filtra1)
         hil2 = hilbert(filtra2)
@@ -418,9 +422,23 @@ else :
     plt.plot(frecuencias[:n//2], np.abs(f_b2[:n//2])/max(np.abs((f_b2[:n//2]))))
     plt.show()
 
+    f_bandwidth = 0.01
 
-    filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
-    filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
+    gauss_mask1 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+    gauss_mask2 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+    plt.plot(frecuencias, gauss_mask1)
+    plt.plot(frecuencias, np.abs(f_signal1)/max(np.abs(f_signal1)))
+    plt.show()
+    plt.plot(np.abs(f_signal1*gauss_mask1))
+    plt.show()
+    fft_filtrada1 = f_signal1 * gauss_mask1
+    fft_filtrada2 = f_signal2 * gauss_mask2
+    filtra1 = np.fft.ifft(fft_filtrada1).real
+    filtra2 = np.fft.ifft(fft_filtrada2).real
+    
+
+    #filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
+    #filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
 
     plt.plot(filtra1)
     plt.show()
