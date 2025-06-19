@@ -151,7 +151,13 @@ for intensidad, valores in data.items():
 
 
 
-print(dfs[40]["Hora"])
+print(dfs[40]["Fase_modulada"])
+horas_segundos_40 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[40]["Hora"]]
+horas_segundos_120 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[120]["Hora"]]
+horas_segundos_200 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[200]["Hora"]]
 
 
-
+plt.plot(horas_segundos_40, dfs[40]["Fase_modulada"]- dfs[40]["Fase_no_modulada"] )
+#plt.plot(horas_segundos_120, dfs[120]["Fase_modulada"] - dfs[120]["Fase_no_modulada"])
+#plt.plot(horas_segundos_200, dfs[200]["Fase_modulada"] - dfs[200]["Fase_no_modulada"])
+plt.show()
