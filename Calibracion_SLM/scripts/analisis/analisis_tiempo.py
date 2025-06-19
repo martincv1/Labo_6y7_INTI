@@ -4,8 +4,12 @@ import pickle
 import os
 import re
 from datetime import datetime
+import pandas as pd
+from collections import defaultdict
 import cv2
-from collections import defaultdict  # Útil para agrupar
+from scipy.optimize import curve_fit
+from scipy.signal import butter, firwin, filtfilt, hilbert
+from collections import defaultdict  
 
 def lineal(x, m, c):
     return m*x + c
@@ -36,17 +40,18 @@ x_rec1 = 635
 y_rec1 = 470
 x_rec2 = 635
 y_rec2 = 540
+
 def extraer_datos(nombre_archivo):
     # Expresión regular para capturar la hora y el valor después de la I
     patron = r"_(\d{2})-(\d{2})-(\d{2})_I(\d+)_"
     coincidencia = re.search(patron, nombre_archivo)
     if coincidencia:
         hora, minuto, segundo, valor_I = coincidencia.groups()
-        if valor_I==40:
-            dt_40 = datetime.strptime(f"{hora}:{minuto}:{segundo}", "%H:%M:%S")
-            try:
-                with open(nombre_archivo, 'rb') as f:
-                    imag = pickle.load(f)
+        dt = datetime.strptime(f"{hora}:{minuto}:{segundo}", "%H:%M:%S")
+            
+        try:
+            with open(nombre_archivo, 'rb') as f:
+                imag = pickle.load(f)
                 
                 # roto la imagen para alinear las franjas
                 imag_rot = rotate_bound(imag, 4)
@@ -105,22 +110,48 @@ def extraer_datos(nombre_archivo):
                 lin2_ajust = lin2[inf:sup]
                 popt1, pcov1 = curve_fit(lineal, np.arange(inf, sup), lin1_ajust)
                 popt2, pcov2 = curve_fit(lineal, np.arange(inf, sup), lin2_ajust)
+                diferencia_fase = popt1[1] - popt2[1] 
                 
-                # Guardamos en fase_40: (dt_40, suma_pickle)
-                fase_40.append((dt_40, suma_pickle))
-                
-                return dt_40, suma_pickle
-            except Exception as e:
-                print(f"Error al procesar {nombre_archivo}: {e}")
-                return None, None
-    return None, None  # Si no es I=40 o hay error
+                return dt.time(), float(popt1[1]), float(popt2[1]), int(valor_I)
+        except Exception as e:
+            print(f"Error al procesar {nombre_archivo}: {e}")
+            return None, None, None, None
+    return None, None, None, None  
 
 
 dir_path = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo'
-paths = os.listdir(dir_path)
+paths = [os.path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.pkl')]
+#paths = []
+#for archivo in os.listdir(dir_path):
+ #   paths.append(os.path.join(dir_path, archivo))
+data_imagen = extraer_datos('/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo/1206_13-55-13_I40_T21.pkl')
+print(data_imagen)
 
-print(len(paths))
+data = {
+    40: {"dts": [], "fase_nm": [], "fase_m": []},
+    120: {"dts": [], "fase_nm": [], "fase_m": []},
+    200: {"dts": [], "fase_nm": [], "fase_m": []}
+    }
 
+for p in paths:
+    dt, fase_nm, fase_m, intensidad = extraer_datos(p)
+    if intensidad in data:
+        data[intensidad]["dts"].append(dt)
+        data[intensidad]["fase_nm"].append(fase_nm)
+        data[intensidad]["fase_m"].append(fase_m)
+
+dfs = {}
+for intensidad, valores in data.items():
+    if valores["dts"]:  # Si hay datos para esta intensidad
+        dfs[intensidad] = pd.DataFrame({
+            "Hora": valores["dts"],
+            "Fase_no_modulada": valores["fase_nm"],
+            "Fase_modulada": valores["fase_m"]
+        })
+
+
+
+print(dfs[40]["Hora"])
 
 
 
