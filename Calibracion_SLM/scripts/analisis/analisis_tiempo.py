@@ -90,12 +90,21 @@ def extraer_datos(nombre_archivo):
                 high2 = highcut2 / nyq
 
                 numtaps = 20
-                b1 = firwin(numtaps, [low1, high1], pass_zero=False)
-                b2 = firwin(numtaps, [low2, high2], pass_zero=False)
+                #b1 = firwin(numtaps, [low1, high1], pass_zero=False)
+                #b2 = firwin(numtaps, [low2, high2], pass_zero=False)
 
                 # Filtrado de las señales
-                filtra1 = filtfilt(b1, [1.0], signal1)
-                filtra2 = filtfilt(b2, [1.0], signal2)
+                #filtra1 = filtfilt(b1, [1.0], signal1)
+                #filtra2 = filtfilt(b2, [1.0], signal2)
+
+                #Máscara gaussiana
+                f_bandwidth = 0.01
+                gauss_mask1 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+                gauss_mask2 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
+                fft_filtrada1 = f_signal1 * gauss_mask1
+                fft_filtrada2 = f_signal2 * gauss_mask2
+                filtra1 = np.fft.ifft(fft_filtrada1).real
+                filtra2 = np.fft.ifft(fft_filtrada2).real
 
                 # Transformada de Hilbert
                 hil1 = hilbert(filtra1)
@@ -110,7 +119,7 @@ def extraer_datos(nombre_archivo):
                 lin2_ajust = lin2[inf:sup]
                 popt1, pcov1 = curve_fit(lineal, np.arange(inf, sup), lin1_ajust)
                 popt2, pcov2 = curve_fit(lineal, np.arange(inf, sup), lin2_ajust)
-                diferencia_fase = popt1[1] - popt2[1] 
+                #diferencia_fase = popt1[1] - popt2[1] 
                 
                 return dt.time(), float(popt1[1]), float(popt2[1]), int(valor_I)
         except Exception as e:
@@ -156,8 +165,20 @@ horas_segundos_40 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[40]["
 horas_segundos_120 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[120]["Hora"]]
 horas_segundos_200 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[200]["Hora"]]
 
-
-plt.plot(horas_segundos_40, dfs[40]["Fase_modulada"]- dfs[40]["Fase_no_modulada"] )
+plt.scatter(horas_segundos_40, dfs[40]["Fase_modulada"])
+plt.xlabel("Tiempo [s]")
+plt.ylabel("Fase [rad]")
+plt.title("Fase_modulada, I=40")
+plt.show()
+plt.scatter(horas_segundos_40, dfs[40]["Fase_no_modulada"])
+plt.xlabel("Tiempo [s]")
+plt.ylabel("Diferencia de Fase [rad]")
+plt.title("Fase no modulada, I= 40")
+plt.show()
+plt.scatter(horas_segundos_40, dfs[40]["Fase_modulada"]- dfs[40]["Fase_no_modulada"] )
+plt.xlabel("Tiempo [s]")
+plt.ylabel("Diferencia de Fase [rad]")
+plt.title("Intensidad 40")
 #plt.plot(horas_segundos_120, dfs[120]["Fase_modulada"] - dfs[120]["Fase_no_modulada"])
 #plt.plot(horas_segundos_200, dfs[200]["Fase_modulada"] - dfs[200]["Fase_no_modulada"])
 plt.show()
