@@ -9,6 +9,13 @@ import pickle
 import os 
 import warnings
 
+"""
+13/6/2025: 
+Se modifican los valores de tension del SLM de 2.74-1.48 a 4.32-1.48. No se pone Save to NVRAM
+Se pasa a 4.32-0.82
+Se pasa a 2.74-0.82
+"""
+
 ########################################## Defino funciones de configuración
 BUFFER_COUNT = 1
 
@@ -201,7 +208,7 @@ decompression_filter = eb.PvDecompressionFilter()
 
 # Defino array de intensidades e inicializo el SLM
 
-intensidades_array = np.arange(0, 255, 1)
+intensidades_array = np.arange(0, 255, 5)
 # Init HOLOEYE SLM Display SDK and make sure to check for the correct version this script was written with:
 err = HEDS.SDK.Init(4,0)
 assert err == HEDSERR_NoError, HEDS.SDK.ErrorString(err)
@@ -242,50 +249,50 @@ for i in intensidades_array:
     stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
     for j in range(cant_promedio):
             
-            # Retrieve next pvbuffer
-            pruebas = 0
-            while pruebas <= cant_pruebas_retrieve:
-                result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
-                if buffer_check(result, operational_result):
-                    break
-                stream.QueueBuffer(pvbuffer) 
-                time.sleep(tiempo_prueba)
-                pruebas += 1
-                
-            #
-            # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
-            # -----------------------------------------------------------------------------------------
-            # ...
-            result, frame_rate_val = frame_rate.GetValue()
-            result, bandwidth_val = bandwidth.GetValue()
-            print(f"{doodle[doodle_index]} BlockID: {pvbuffer.GetBlockID():016d}", end='')
-
-            image = None    
-            payload_type = pvbuffer.GetPayloadType()
+        # Retrieve next pvbuffer
+        pruebas = 0
+        while pruebas <= cant_pruebas_retrieve:
+            result, pvbuffer, operational_result = stream.RetrieveBuffer(1000)
+            if buffer_check(result, operational_result):
+                break
+            stream.QueueBuffer(pvbuffer) 
+            time.sleep(tiempo_prueba)
+            pruebas += 1
             
-            image = get_data(payload_type) # acá consigue la imagen
+        #
+        # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
+        # -----------------------------------------------------------------------------------------
+        # ...
+        result, frame_rate_val = frame_rate.GetValue()
+        result, bandwidth_val = bandwidth.GetValue()
+        print(f"{doodle[doodle_index]} BlockID: {pvbuffer.GetBlockID():016d}", end='')
 
-            if image:
+        image = None    
+        payload_type = pvbuffer.GetPayloadType()
+        
+        image = get_data(payload_type) # acá consigue la imagen
 
-                image_data = image.GetDataPointer()
-                #guardar imagen
-                #image_data = image_data[:,:,0]
-                lista_promedio.append(image_data)
-                
+        if image:
 
-                        
-            # Re-queue the pvbuffer in the stream object
-            stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+            image_data = image.GetDataPointer()
+            #guardar imagen
+            #image_data = image_data[:,:,0]
+            lista_promedio.append(image_data)
             
-            doodle_index = (doodle_index + 1) % 6
+
+                    
+        # Re-queue the pvbuffer in the stream object
+        stream.QueueBuffer(pvbuffer) # Acá manda el buffer a buscar
+        
+        doodle_index = (doodle_index + 1) % 6
     file_name = os.path.join(save_dir, f'{fecha}_I{i}_T{T_dia}')
     if cant_promedio ==1:
-            cv2.imwrite(f"{file_name}.png", image_data)
+        cv2.imwrite(f"{file_name}.png", image_data)
     else:
-            arr = np.stack(lista_promedio, axis = 2)
-            image_data_prom = np.mean(arr, axis = 2)
-            with open(f"{file_name}.pkl", 'wb') as f:
-                pickle.dump(image_data_prom, f)
+        arr = np.stack(lista_promedio, axis = 2)
+        image_data_prom = np.mean(arr, axis = 2)
+        with open(f"{file_name}.pkl", 'wb') as f:
+            pickle.dump(image_data_prom, f)
 # Acá se cierra el while
     
 
