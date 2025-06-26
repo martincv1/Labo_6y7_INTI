@@ -248,7 +248,7 @@ fases = np.linspace(0,2*np.pi,256)
 signals1 = pd.read_csv('Calibracion_SLM\\data\\signal1.csv')
 signals2 = pd.read_csv('Calibracion_SLM\\data\\signal2.csv')
 
-prueba = True
+prueba = False
 if prueba:
     c1 = np.zeros(256)
     c2 = np.zeros(256)
@@ -304,15 +304,15 @@ if prueba:
         b1 = firwin(numtaps, [low1, high1], pass_zero=False)
         b2 = firwin(numtaps, [low2, high2], pass_zero=False)
 
-        #filtra1 = filtfilt(b1, [1.0], signal1)
-        #filtra2 = filtfilt(b2, [1.0], signal2)
+        filtra1 = filtfilt(b1, [1.0], signal1)
+        filtra2 = filtfilt(b2, [1.0], signal2)
         f_bandwidth = 0.01
         gauss_mask1 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
         gauss_mask2 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
         fft_filtrada1 = f_signal1 * gauss_mask1
         fft_filtrada2 = f_signal2 * gauss_mask2
-        filtra1 = np.fft.ifft(fft_filtrada1).real
-        filtra2 = np.fft.ifft(fft_filtrada2).real
+        #filtra1 = np.fft.ifft(fft_filtrada1).real
+        #filtra2 = np.fft.ifft(fft_filtrada2).real
 
 
         hil1 = hilbert(filtra1)
@@ -340,6 +340,10 @@ if prueba:
     plt.show()
     dif = np.unwrap(c1)-np.unwrap(c2)
     plt.plot(dif)
+    plt.xlabel('Valores de gris')
+    plt.ylabel('Diferencia de fase')
+    plt.title('Diferencia de fase entre franjas')
+    
     plt.show()
     plt.plot(m1-m2, label = f'{np.max(np.abs(m1-m2))}')
     plt.legend()
@@ -437,10 +441,14 @@ else :
     filtra2 = np.fft.ifft(fft_filtrada2).real
     
 
-    #filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
-    #filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
+    filtra1 = filtfilt(b1, [1.0], signal1-np.mean(signal1))
+    filtra2 = filtfilt(b2, [1.0], signal2-np.mean(signal2))
 
     plt.plot(filtra1)
+    plt.xlabel('Pixel')
+    plt.ylabel('Intensidad')
+    plt.title('Señal filtrada')
+    
     plt.show()
 
     plt.plot(filtra2)
@@ -448,7 +456,20 @@ else :
 
     hil1 = hilbert(filtra1)
     hil2 = hilbert(filtra2)
+
+    
+
     lin1 = np.unwrap(np.angle(hil1))
+
+    fig, ax = plt.subplots(1,2, figsize=(10, 6))
+    ax[0].plot(np.angle(hil1)[:100])
+    ax[0].set_title('Fase hilbert')
+    ax[1].plot(lin1[:100])
+    ax[1].set_title('Fase hilbert unwrapped')
+    plt.savefig('Calibracion_SLM\\data\\hilbert_fir.png', bbox_inches='tight')
+    plt.show()
+
+
     lin2 = np.unwrap(np.angle(hil2))
 
     plt.plot(lin1)
