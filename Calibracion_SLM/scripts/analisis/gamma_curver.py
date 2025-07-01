@@ -93,8 +93,8 @@ class GammaCurver:
                     idx_to_remove = np.argmin(np.abs(middle_knots - cmk))
                     middle_knots = np.delete(middle_knots, idx_to_remove)
             for mk in middle_knots:
-                self.spline = self.initial_spline.insert_knot(mk)
-            self.tck = self.spline.tck
+                self.initial_spline = self.initial_spline.insert_knot(mk)
+            self.tck = self.initial_spline.tck
             self.n_middle_knots = self.at_least_middle_knots
 
             self.n_knots = len(self.tck[0])
@@ -170,6 +170,9 @@ class GammaCurver:
     def get_initial_spline(self):
         return self.initial_spline(self.intensities)
 
+    def get_initial_spline_derivative(self):
+        return self.initial_spline.derivative()(self.intensities)
+
     def get_spline_constrained(self):
         return self.spline_constrained(self.intensities)
 
@@ -195,8 +198,11 @@ class GammaCurver:
         axs[0].set_ylabel('phase')
         axs[0].legend()
         fig.suptitle('Resultado de spline suavizante con constraint')
-        axs[1].plot(self.intensities, self.get_spline_constrained_derivative(), label='Derivada de la spline',
-                    color='purple', linewidth=2)
+        axs[1].plot(self.intensities, self.get_initial_spline_derivative(), label='Derivada de la spline inicial',
+                    color='orange', linewidth=2)
+        axs[1].plot(self.intensities, self.get_spline_constrained_derivative(),
+                    label='Derivada de la spline constrained', color='purple', linewidth=2)
+        axs[1].legend()
         plt.tight_layout()
         plt.show()
 
