@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import make_splrep, BSpline
-from scipy.optimize import minimize
+from scipy.optimize import minimize, root
 from typing import Union
+
+SLM_GRAYSCALE_N = 256
 
 
 class GammaCurver:
@@ -10,20 +12,23 @@ class GammaCurver:
     def __init__(
         self,
         phase_measurement: np.ndarray,
-        current_gamma_curve=None,
-        intensities: Union[np.ndarray, None] = None,
+        current_gamma_curve: np.ndarray,
+        graylevels: Union[np.ndarray, None] = None,
         verbose: bool = False,
     ):
-        self.intensities = intensities
+        assert np.issubdtype(current_gamma_curve.dtype, np.integer)
+        self.graylevels = graylevels
         self.verbose = verbose
         self.phase_measurement = phase_measurement
         self.current_gamma_curve = current_gamma_curve
-        self._initialize_intensities()
+        self._initialize_graylevels()
         self.splines_available = False
         self._tolerance_knots = 0.5
         self._k_spline = 3   # Grado de la spline
         self._s_spline = 10  # s controla la suavidad de la spline
         self._at_least_middle_knots = 2
+        self._max_sequence = 383
+        self._max_angle = 2 * np.pi
 
         self.smooth_curve_monotonic()
 
@@ -67,10 +72,11 @@ class GammaCurver:
         if self.verbose:
             print(message, *args, **kwargs)
 
-    def _initialize_intensities(self):
-        if self.intensities is None:
-            assert len(self.phase_measurement) == 256
-            self.intensities = np.arange(len(self.phase_measurement))
+    def _initialize_graylevels(self):
+        if self.graylevels is None:
+            assert len(self.phase_measurement) == SLM_GRAYSCALE_N
+            self.graylevels = np.arange(len(self.phase_measurement))
+        self.lut_levels = self.current_gamma_curve[self.graylevels]
 
     def _add_knots(self):
         # Acceso al grado, los knots y coeficientes
@@ -148,12 +154,12 @@ class GammaCurver:
     def smooth_curve_monotonic(self):
         nest = 2 * self.k_spline + 2 + self.at_least_middle_knots
         self.initial_spline = make_splrep(
-            self.intensities, self.phase_measurement, s=self.s_spline, k=self.k_spline, nest=nest
+            self.lut_levels, self.phase_measurement, s=self.s_spline, k=self.k_spline, nest=nest
         )
 
         self._add_knots()
 
-        args = (self.tck[0], self.n_middle_knots, self.k_spline, self.intensities, self.phase_measurement)
+        args = (self.tck[0], self.n_middle_knots, self.k_spline, self.lut_levels, self.phase_measurement)
 
         x0, bounds = self._get_seed_and_bounds()
 
@@ -168,16 +174,16 @@ class GammaCurver:
         self.splines_available = True
 
     def get_initial_spline(self):
-        return self.initial_spline(self.intensities)
+        return self.initial_spline(self.lut_levels)
 
     def get_initial_spline_derivative(self):
-        return self.initial_spline.derivative()(self.intensities)
+        return self.initial_spline.derivative()(self.lut_levels)
 
     def get_spline_constrained(self):
-        return self.spline_constrained(self.intensities)
+        return self.spline_constrained(self.lut_levels)
 
     def get_spline_constrained_derivative(self):
-        return self.spline_constrained.derivative()(self.intensities)
+        return self.spline_constrained.derivative()(self.lut_levels)
 
     def plot_result(self, y_true=None):
         if self.splines_available is False:
@@ -186,36 +192,71 @@ class GammaCurver:
         fig, axs = plt.subplots(1, 2, figsize=(12, 4))
         fig: plt.Figure = fig
         axs: list[plt.Axes] = axs
+        x = self.lut_levels
         if y_true is not None:
-            axs[0].plot(self.intensities, y_true, label='Curva verdadera', linewidth=2)
-        axs[0].scatter(self.intensities, self.phase_measurement, color='red', s=10, label='Datos ruidosos')
+            axs[0].plot(x, y_true, label='Curva verdadera', linewidth=2)
+        axs[0].scatter(x, self.phase_measurement, color='red', s=10, label='Datos ruidosos')
         # Graficar la spline ajustada sin constraint
-        axs[0].plot(self.intensities, self.get_initial_spline(), label='Spline suavizante', color='green', linewidth=2)
+        axs[0].plot(x, self.get_initial_spline(), label='Spline suavizante', color='green', linewidth=2)
         # Graficar la spline con constraint para comparar
-        axs[0].plot(self.intensities, self.get_spline_constrained(), '--', label='Spline constrained', color='orange',
-                    linewidth=2)
-        axs[0].set_xlabel('intensities')
+        axs[0].plot(x, self.get_spline_constrained(), '--', label='Spline constrained', color='orange', linewidth=2)
+        axs[0].set_xlabel('LUT levels')
         axs[0].set_ylabel('phase')
         axs[0].legend()
         fig.suptitle('Resultado de spline suavizante con constraint')
-        axs[1].plot(self.intensities, self.get_initial_spline_derivative(), label='Derivada de la spline inicial',
+        axs[1].plot(x, self.get_initial_spline_derivative(), label='Derivada de la spline inicial',
                     color='orange', linewidth=2)
-        axs[1].plot(self.intensities, self.get_spline_constrained_derivative(),
+        axs[1].plot(x, self.get_spline_constrained_derivative(),
                     label='Derivada de la spline constrained', color='purple', linewidth=2)
+        axs[1].legend()
+        plt.tight_layout()
+        plt.show()
+
+    def linearize_gamma(self):
+        assert self.current_gamma_curve is not None, "No se indicó una curva gamma con la que se obtuvo el ajuste"
+        self.pretended_angles = np.linspace(0, 2 * np.pi, SLM_GRAYSCALE_N, endpoint=False)
+
+        fun = lambda x: self.spline_constrained(x) - self.pretended_angles
+        res = root(fun, self.current_gamma_curve, method="hybr")
+
+        assert res.success, "No se pudo encontrar la curva gamma lineal"
+        self.new_gamma_curve = res.x.astype(int)
+        self.new_angles = self.spline_constrained(self.new_gamma_curve)
+
+    def plot_new_gamma(self):
+        fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+        fig: plt.Figure = fig
+        axs: list[plt.Axes] = axs
+        x = self.graylevels
+        axs[0].plot(x, self.current_gamma_curve, label='Curva gamma de medición', linewidth=2)
+        axs[0].plot(x, self.new_gamma_curve, label='Curva gamma nueva', linewidth=2)
+        axs[0].set_xlabel('Graylevels')
+        axs[0].set_ylabel('LUT levels')
+        axs[0].legend()
+        fig.suptitle('Curva gamma lineal')
+        axs[1].plot(x, self.pretended_angles, label='Ángulos esperados', linewidth=2, linestyle='--')
+        axs[1].plot(x, self.new_angles, label='Ángulos obtenidos', linewidth=2)
+        MaxError = np.max(np.abs(self.new_angles - self.pretended_angles))
+        RMSE = np.sqrt(np.mean(np.square(self.new_angles - self.pretended_angles)))
+        axs[1].text(0.5, 0.9, f"MaxError: {MaxError:.3f}. RMSE: {RMSE:.3f}", ha="center", transform=axs[1].transAxes, fontsize=12)
         axs[1].legend()
         plt.tight_layout()
         plt.show()
 
 
 if __name__ == "__main__":
-    n_points = 256
+    n_points = SLM_GRAYSCALE_N
     amplitude_sin = 0.3
     noise_std = 0.2
 
-    intensities = np.arange(n_points)
+    graylevels = np.arange(n_points)
+    current_gamma_curve = np.linspace(0, 384, n_points, dtype=int, endpoint=False)
     y_lin = np.linspace(0, 2 * np.pi, n_points)
     curve = amplitude_sin * np.sin(y_lin) + y_lin  # Curva creciente
     noise = np.random.normal(0, noise_std, n_points)
     measured_curve = curve + noise
-    gammer = GammaCurver(measured_curve, intensities=intensities)
+    gammer = GammaCurver(measured_curve, current_gamma_curve=current_gamma_curve, graylevels=graylevels)
     gammer.plot_result(y_true=curve)
+
+    gammer.linearize_gamma()
+    gammer.plot_new_gamma()
