@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import make_splrep, BSpline
 from scipy.optimize import minimize, root
 from typing import Union
+from pandas import DataFrame
 
 SLM_GRAYSCALE_N = 256
 
@@ -27,8 +28,8 @@ class GammaCurver:
         self._k_spline = 3   # Grado de la spline
         self._s_spline = 10  # s controla la suavidad de la spline
         self._at_least_middle_knots = 2
-        self._max_sequence = 383
-        self._max_angle = 2 * np.pi
+        self.max_sequence = 383
+        self.max_angle = 2 * np.pi
 
         self.smooth_curve_monotonic()
 
@@ -214,13 +215,14 @@ class GammaCurver:
 
     def linearize_gamma(self):
         assert self.current_gamma_curve is not None, "No se indicó una curva gamma con la que se obtuvo el ajuste"
-        self.pretended_angles = np.linspace(0, 2 * np.pi, SLM_GRAYSCALE_N, endpoint=False)
+        self.pretended_angles = np.linspace(0, self.max_angle, SLM_GRAYSCALE_N, endpoint=False)
 
         fun = lambda x: self.spline_constrained(x) - self.pretended_angles
         res = root(fun, self.current_gamma_curve, method="hybr")
 
         assert res.success, "No se pudo encontrar la curva gamma lineal"
         self.new_gamma_curve = res.x.astype(int)
+        self.new_gamma_curve = np.clip(self.new_gamma_curve, 0, self.max_sequence)
         self.new_angles = self.spline_constrained(self.new_gamma_curve)
 
     def plot_new_gamma(self):
@@ -243,6 +245,10 @@ class GammaCurver:
         plt.tight_layout()
         plt.show()
 
+    def save_csv(self, path):
+        df = DataFrame({"gamma": np.repeat(self.new_gamma_curve, 4)})
+        df.to_csv(path, index=False)
+
 
 if __name__ == "__main__":
     n_points = SLM_GRAYSCALE_N
@@ -260,3 +266,4 @@ if __name__ == "__main__":
 
     gammer.linearize_gamma()
     gammer.plot_new_gamma()
+    gammer.save_csv("Calibracion_SLM/data/gamma_curve.csv")
