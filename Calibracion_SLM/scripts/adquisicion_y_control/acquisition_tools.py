@@ -12,6 +12,7 @@ class jai_camera:
         self.verbose = verbose
         self.n_retry_retrieve = n_retry_retrieve
         self.retry_wait_time = retry_wait_time
+        self.wait_after_start = 0.5
         self.device: eb.PvDeviceGEV
         self.stream: eb.PvStreamGEV
 
@@ -25,46 +26,54 @@ class jai_camera:
         # Get device parameters need to control streaming
         self.device_params = self.device.GetParameters()
         # Map the GenICam AcquisitionStart and AcquisitionStop commands
-        self.start = self.device_params.Get("AcquisitionStart")
-        self.stop = self.device_params.Get("AcquisitionStop")
+        self.start: eb.PvGenCommand = self.device_params.Get("AcquisitionStart")
+        self.stop: eb.PvGenCommand = self.device_params.Get("AcquisitionStop")
         # Get stream parameters
-        self.stream_params = self.stream.GetParameters()
+        self.stream_params: eb.PvGenParameterArray = self.stream.GetParameters()
         # Map a few GenICam stream stats counters
-        self.frame_rate = self.stream_params.Get("AcquisitionRate")
-        self.bandwidth = self.stream_params["Bandwidth"]
+        self.frame_rate: eb.PvGenParameter = self.stream_params["AcquisitionRate"]
+        self.bandwidth: eb.PvGenParameter = self.stream_params["Bandwidth"]
         # Enable streaming and send the AcquisitionStart command
         self.print("Enabling streaming and sending AcquisitionStart command.")
-        self.device.StreamEnable()
-        self.start.Execute()
+        result: eb.PvResult = self.device.StreamEnable()
+        if not result.IsOK():
+            raise Exception(f"Unable to enable streaming. {result.GetCodeString()} ({result.GetDescription()})")
+        result: eb.PvResult = self.start.Execute()
+        if not result.IsOK():
+            raise Exception(f"Unable to start acquisition. {result.GetCodeString()} ({result.GetDescription()})")
         # Por las dudas pongo un sleep
-        time.sleep(2)
+        time.sleep(self.wait_after_start)
 
         self.doodle = "|\\-|-/"
         self.doodle_index = 0
         self.errors = 0
         self.decompression_filter = eb.PvDecompressionFilter()
 
+    def _result_ok_or_error(self, result: eb.PvResult, message: str):
+        if not result.IsOK():
+            raise Exception(f"{message}: {result.GetCodeString()} ({result.GetDescription()})")
+
     def _connect_to_device(self):
         # Connect to the GigE Vision or USB3 Vision device
         self.print("Connecting to device.")
         result, self.device = eb.PvDevice.CreateAndConnect(self.connection_ID)
-        if not self.device:
-            raise Exception(f"Unable to connect to device: {result.GetCodeString()} ({result.GetDescription()})")
+        self._result_ok_or_error(result, "Unable to connect to device")
 
     def _open_stream(self):
         # Open stream to the GigE Vision or USB3 Vision device
         self.print("Opening stream from device.")
         result, self.stream = eb.PvStream.CreateAndOpen(self.connection_ID)
-        if not self.stream:
-            raise Exception(f"Unable to stream from device. {result.GetCodeString()} ({result.GetDescription()})")
+        self._result_ok_or_error(result, "Unable to open stream from device")
 
     def _configure_stream(self):
         # If this is a GigE Vision device, configure GigE Vision specific streaming parameters
         if isinstance(self.device, eb.PvDeviceGEV):
             # Negotiate packet size
-            self.device.NegotiatePacketSize()
+            result = self.device.NegotiatePacketSize()
+            self._result_ok_or_error(result, "Unable to negotiate packet size")
             # Configure device streaming destination
-            self.device.SetStreamDestination(self.stream.GetLocalIPAddress(), self.stream.GetLocalPort())
+            result = self.device.SetStreamDestination(self.stream.GetLocalIPAddress(), self.stream.GetLocalPort())
+            self._result_ok_or_error(result, "Unable to set stream destination")
 
     def _configure_stream_buffers(self):
         self.buffer_list = []
@@ -81,13 +90,15 @@ class jai_camera:
             # Create new pvbuffer object
             pvbuffer = eb.PvBuffer()
             # Have the new pvbuffer object allocate payload memory
-            pvbuffer.Alloc(size)
+            result = pvbuffer.Alloc(size)
+            self._result_ok_or_error(result, "Unable to allocate payload memory")
             # Add to external list - used to eventually release the buffers
             self.buffer_list.append(pvbuffer)
 
         # Queue all buffers in the stream
         for pvbuffer in self.buffer_list:
-            self.stream.QueueBuffer(pvbuffer)
+            result = self.stream.QueueBuffer(pvbuffer)
+            self._result_ok_or_error(result, "Unable to queue buffer")
         self.print(f"Created {buffer_count} buffers", override_verbose=buffer_count != self.buffers)
 
     def _initt(self):
@@ -98,7 +109,7 @@ class jai_camera:
         self._connect_to_device()
         self._open_stream()
 
-    def _get_data(self, pvbuffer, payload_type):
+    def _get_data(self, pvbuffer: eb.PvBuffer, payload_type):
         # Chequeo el tipo de data que saca del buffer y adquiere una imagen
         if payload_type == eb.PvPayloadTypeImage:
             image = pvbuffer.GetImage()
@@ -143,7 +154,7 @@ class jai_camera:
             self.print(" Payload type not supported by this sample", override_verbose=True)
         return image
 
-    def buffer_check(self, result, operational_result):
+    def buffer_check(self, result: eb.PvResult, operational_result: eb.PvResult):
         # Chequeo si el buffer adquirió un resultado útil o no
         if not result.IsOK():
             self.print(f"{result.GetCodeString()}      ", doodle_it=True, override_verbose=True)
@@ -169,12 +180,18 @@ class jai_camera:
     def get_frame(self, do_queue=True):
         # Retrieve next pvbuffer
         tries = 0
+        result: eb.PvResult
+        pvbuffer: eb.PvBuffer
+        operational_result: eb.PvResult
         while tries <= self.n_retry_retrieve:
             result, pvbuffer, operational_result = self.stream.RetrieveBuffer(1000)
             print("Buffer retrieved")
             if self.buffer_check(result, operational_result):
                 break
-            self.stream.QueueBuffer(pvbuffer)
+            result = self.stream.QueueBuffer(pvbuffer)
+            if not result.IsOK():
+                self.print(f"{result.GetCodeString()}      ", doodle_it=True, override_verbose=True)
+                warnings.warn('Buffer no adquirido')
             time.sleep(self.retry_wait_time)
             tries += 1
 
@@ -214,15 +231,20 @@ class jai_camera:
     def close(self):
         # Tell the device to stop sending images.
         self.print("\nSending AcquisitionStop command to the device")
-        self.stop.Execute()
+        result = self.stop.Execute()
+        self._result_ok_or_error(result, "AcquisitionStop command failed")
 
         # Disable streaming on the device
         self.print("Disable streaming on the controller.")
-        self.device.StreamDisable()
+        result = self.device.StreamDisable()
+        self._result_ok_or_error(result, "StreamDisable command failed")
 
         # Abort all buffers from the stream and dequeue
         self.print("Aborting buffers still in stream")
-        self.stream.AbortQueuedBuffers()
+        result = self.stream.AbortQueuedBuffers()
+        self._result_ok_or_error(result, "AbortQueuedBuffers command failed")
+
+        pvbuffer = None
         while self.stream.GetQueuedBufferCount() > 0:
             result, pvbuffer, lOperationalResult = self.stream.RetrieveBuffer()
 
