@@ -12,12 +12,14 @@ class jai_camera:
         self.verbose = verbose
         self.n_retry_retrieve = n_retry_retrieve
         self.retry_wait_time = retry_wait_time
+        self.device: eb.PvDeviceGEV
+        self.stream: eb.PvStreamGEV
 
         self.kb = psu.PvKb()
         self._initt()
         # Termino de configurar algunas cosas
         self._configure_stream()
-        self.buffer_list = self._configure_stream_buffers()
+        self._configure_stream_buffers()
 
         # Primero agarro algunas propiedades de Genicam
         # Get device parameters need to control streaming
@@ -94,7 +96,7 @@ class jai_camera:
         if not self.connection_ID:
             raise Exception("Error al seleccionar ID")
         self._connect_to_device()
-        self.stream = self._open_stream()
+        self._open_stream()
 
     def _get_data(self, pvbuffer, payload_type):
         # Chequeo el tipo de data que saca del buffer y adquiere una imagen
@@ -153,14 +155,13 @@ class jai_camera:
             return False
         return True
 
-    def print(self, override_verbose=False, doodle_it=False, *args, **kwargs):
+    def print(self, message, override_verbose=False, doodle_it=False, *args, **kwargs):
         if self.verbose or override_verbose:
             if doodle_it:
-                primero, resto = args
-                print(f"{self.doodle[self.doodle_index]} {primero}", end='\r', *resto, **kwargs)
+                print(f"{self.doodle[self.doodle_index]} {message}", end='\r', *args, **kwargs)
                 self._roll_doodle()
             else:
-                print(*args, **kwargs)
+                print(message, *args, **kwargs)
 
     def _roll_doodle(self):
         self.doodle_index = (self.doodle_index + 1) % 6
@@ -170,6 +171,7 @@ class jai_camera:
         tries = 0
         while tries <= self.n_retry_retrieve:
             result, pvbuffer, operational_result = self.stream.RetrieveBuffer(1000)
+            print("Buffer retrieved")
             if self.buffer_check(result, operational_result):
                 break
             self.stream.QueueBuffer(pvbuffer)

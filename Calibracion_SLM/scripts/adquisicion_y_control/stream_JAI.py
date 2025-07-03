@@ -1,13 +1,14 @@
 # Importo librerias
 import cv2
 
-from Calibracion_SLM.scripts.adquisicion_y_control.acquisition_tools import jai_camera
+from acquisition_tools import jai_camera
 
 """----------------------------- Defino funciones de configuración -----------------------"""
 BUFFER_COUNT = 16
 
 camera = jai_camera(buffers=BUFFER_COUNT)
 
+print("Camera ready")
 flag = True
 while flag:
     frame = camera.get_frame()
