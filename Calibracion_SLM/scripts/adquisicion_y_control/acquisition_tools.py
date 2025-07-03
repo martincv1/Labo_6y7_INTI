@@ -35,12 +35,11 @@ class jai_camera:
         self.bandwidth: eb.PvGenParameter = self.stream_params["Bandwidth"]
         # Enable streaming and send the AcquisitionStart command
         self.print("Enabling streaming and sending AcquisitionStart command.")
-        result: eb.PvResult = self.device.StreamEnable()
-        if not result.IsOK():
-            raise Exception(f"Unable to enable streaming. {result.GetCodeString()} ({result.GetDescription()})")
-        result: eb.PvResult = self.start.Execute()
-        if not result.IsOK():
-            raise Exception(f"Unable to start acquisition. {result.GetCodeString()} ({result.GetDescription()})")
+        result = self.device.StreamEnable()
+        self._result_ok_or_error(result, "Unable to enable streaming.")
+        result = self.start.Execute()
+        self._result_ok_or_error(result, "Unable to start acquisition.")
+
         # Por las dudas pongo un sleep
         time.sleep(self.wait_after_start)
 
@@ -49,8 +48,11 @@ class jai_camera:
         self.errors = 0
         self.decompression_filter = eb.PvDecompressionFilter()
 
-    def _result_ok_or_error(self, result: eb.PvResult, message: str):
-        if not result.IsOK():
+    def _result_ok_or_error(self, result: eb.PvResult, message: str, check=None):
+        if not check:
+            if not result.IsOK():
+                raise Exception(f"{message}: {result.GetCodeString()} ({result.GetDescription()})")
+        elif result.GetCode() != check:
             raise Exception(f"{message}: {result.GetCodeString()} ({result.GetDescription()})")
 
     def _connect_to_device(self):
@@ -98,7 +100,7 @@ class jai_camera:
         # Queue all buffers in the stream
         for pvbuffer in self.buffer_list:
             result = self.stream.QueueBuffer(pvbuffer)
-            self._result_ok_or_error(result, "Unable to queue buffer")
+            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
         self.print(f"Created {buffer_count} buffers", override_verbose=buffer_count != self.buffers)
 
     def _initt(self):
@@ -185,19 +187,19 @@ class jai_camera:
         operational_result: eb.PvResult
         while tries <= self.n_retry_retrieve:
             result, pvbuffer, operational_result = self.stream.RetrieveBuffer(1000)
-            print("Buffer retrieved")
+            self.print("Buffer retrieved")
             if self.buffer_check(result, operational_result):
                 break
             result = self.stream.QueueBuffer(pvbuffer)
-            if not result.IsOK():
-                self.print(f"{result.GetCodeString()}      ", doodle_it=True, override_verbose=True)
-                warnings.warn('Buffer no adquirido')
+            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
             time.sleep(self.retry_wait_time)
             tries += 1
 
         # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
         result, self.frame_rate_val = self.frame_rate.GetValue()
+        self._result_ok_or_error(result, "Unable to read frame rate value.")
         result, self.bandwidth_val = self.bandwidth.GetValue()
+        self._result_ok_or_error(result, "Unable to read bandwidth value.")
         self.print(f"BlockID: {pvbuffer.GetBlockID():016d}", doodle_it=True)
 
         image = None
@@ -210,7 +212,8 @@ class jai_camera:
 
         if do_queue:
             # Re-queue the pvbuffer in the stream object
-            self.stream.QueueBuffer(pvbuffer)  # Acá manda el buffer a buscar
+            result = self.stream.QueueBuffer(pvbuffer)  # Acá manda el buffer a buscar
+            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
 
         return image_data
 
@@ -249,10 +252,12 @@ class jai_camera:
             result, pvbuffer, lOperationalResult = self.stream.RetrieveBuffer()
 
     def reset_queue(self):
-        self.stream.AbortQueuedBuffers()
+        result = self.stream.AbortQueuedBuffers()
+        self._result_ok_or_error(result, "Unable to abort queued buffers.")
         pvbuffer = None
         while self.stream.GetQueuedBufferCount() > 0:
             result, pvbuffer, lOperationalResult = self.stream.RetrieveBuffer()
 
         if pvbuffer:
-            self.stream.QueueBuffer(pvbuffer)
+            result = self.stream.QueueBuffer(pvbuffer)
+            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)

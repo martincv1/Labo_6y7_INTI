@@ -1,5 +1,6 @@
 # Importo librerias
 import cv2
+import numpy as np
 
 from acquisition_tools import jai_camera
 
@@ -13,7 +14,7 @@ flag = True
 while flag:
     frame = camera.get_frame()
 
-    if frame:
+    if isinstance(frame, np.ndarray):
         flag = False
 
     print(f" {camera.frame_rate_val:.1f} FPS  {camera.bandwidth_val / 1000000.0:.1f} Mb/s     ", end='\r')
