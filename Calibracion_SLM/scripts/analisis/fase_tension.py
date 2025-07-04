@@ -4,14 +4,13 @@ import pickle
 import os
 import re
 from datetime import datetime
-from rotar_y_crop_img import rotate_bound
-from scipy.signal import hilbert
+from scipy.signal import hilbert, find_peaks
 from scipy.optimize import curve_fit
 import cv2
-from scipy.signal import find_peaks
+from funciones import fase_hilbert, rotate_bound
 
 
-dir_path = r'Calibracion_SLM\data\fase_tension_4.32-1.48'
+dir_path = r'Calibracion_SLM\data\fase_tension_4.32-0.82'
 
 file_path = r'Calibracion_SLM\data\fase_tension_4.32-0.82\1306_I150_T21.pkl'
 with open(file_path, mode = 'rb') as f:
@@ -112,7 +111,7 @@ if prueba:
     plt.plot(lin1)
     plt.plot(lin2)
     plt.show()
-video = False
+video = True
 if video:
     for i in np.arange(0,255,5):
         file_path = os.path.join(dir_path, f'1306_I{i}_T21.pkl')
@@ -121,7 +120,7 @@ if video:
         with open(file_path, mode = 'rb') as f:
             imag = pickle.load(f)
         imag = rotate_bound(imag, 2)
-        plt.imshow(imag)
+        plt.imshow(imag[150:800,100:1300])
         plt.pause(.05)
         plt.cla()
 run = True
@@ -165,7 +164,7 @@ if run:
         #freq2 = frecuencias[freq2_ind]
         p1, _ = find_peaks(np.abs(f_signal1)[:n//2], prominence = 0.25*np.max(np.abs(f_signal1)))
         p2, _ = find_peaks(np.abs(f_signal2)[:n//2], prominence = 0.25*np.max(np.abs(f_signal2)))
-
+        print(frecuencias[p1])
         plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2])
         plt.scatter(frecuencias[p1], np.abs(f_signal1)[p1], color ='r')
         plt.title(f'I = {i}. 1: {len(p1)}, 2: {len(p2)}')
@@ -177,7 +176,7 @@ if run:
         #freq1 = frecuencias[p1[-2]]
         #freq2 = frecuencias[p2[-2]]
         #print(freq1)
-        freq1 = 0.08666666666666667
+        freq1 = 0.08666667
         freq2 = freq1
         f_bandwidth = 0.01
         gauss_mask1 = np.exp(-0.5 * ((frecuencias - freq1) / f_bandwidth)**2) + np.exp(-0.5 * ((frecuencias + freq1) / f_bandwidth)**2)
@@ -216,8 +215,10 @@ if run:
     exp_c1 = np.exp(1j*c1)
     exp_c2 = np.exp(1j*c2)
     plt.scatter(np.arange(0,255,5), c1, label='Ordenada al origen 1')
+    plt.legend()
     plt.show()
     plt.scatter(np.arange(0,255,5), c2, label='Ordenada al origen 2')
+    plt.legend()
     plt.show()
     fase1 = np.unwrap(c1)
     fase2 = np.unwrap(c2) 
@@ -227,5 +228,73 @@ if run:
     dif_compleja = np.angle(exp_c1/exp_c2)
     plt.plot(dif_compleja)
     plt.show()
-    plt.plot(np.unwrap(dif_compleja))
+    plt.scatter(np.arange(0,255,5), np.unwrap(dif_compleja)-min(np.unwrap(dif_compleja)))
+    #plt.title('Resultados 4.32-0.82')
+    plt.xlabel('Valor de gris')
+    plt.ylabel('Diferencia de fase')
+    #plt.savefig('Calibracion_SLM/data/resultados_4.32-0.82.png')
+    plt.show()
+
+intento = False
+if intento:
+    # imagen = cv2.imread('Calibracion_SLM/data/fotos_rot/3004_I200_1_T22_r.png')
+    # imagen = rotate_bound(imagen, -27)
+    # plt.imshow(imagen)
+    # plt.show()
+    # altura_rec = 30
+    # ancho_rec = 120
+    # x_rec1 = 520
+    # y_rec1 = 480
+    # x_rec2 = 520
+    # y_rec2 = 585 
+    # recorte1 = imagen[y_rec1:y_rec1+altura_rec, x_rec1:x_rec1+ancho_rec, 0]
+    # recorte2 = imagen[y_rec2:y_rec2+altura_rec, x_rec2:x_rec2+ancho_rec, 0]
+
+    # fig, ax = plt.subplots()
+    # ax.imshow(imagen)
+    # rect1 = plt.Rectangle((x_rec1,y_rec1), ancho_rec, altura_rec, linewidth = 2, edgecolor = 'red', facecolor = 'none')
+    # rect2 = plt.Rectangle((x_rec2,y_rec2), ancho_rec, altura_rec, linewidth = 2, edgecolor = 'red', facecolor = 'none')
+    # ax.add_patch(rect1)
+    # ax.add_patch(rect2)
+    # plt.show()
+    # senal = np.sum(recorte1, axis=0)
+    # plt.plot(senal)
+    # plt.show()
+    # f_senal = np.fft.fft(senal-np.mean(senal))
+    # n = len(f_senal)
+    # plt.plot(np.abs(f_senal))
+    # plt.show()
+    # indi = np.argmax(np.abs(f_senal)[:n//2])
+    # frecs = np.fft.fftfreq(len(senal), d=1)
+    # print(frecs[indi])
+    # print(indi)
+    fases1 = np.zeros(256)
+    fases2 = np.zeros(256)
+    for i in range(256):
+        imagen0 = cv2.imread(f'Calibracion_SLM/data/fotos_rot/3004_I{i}_0_T22_r.png')
+        imagen0 = imagen0[:,:,0] 
+        for j in range(9):
+            imagen = cv2.imread(f'Calibracion_SLM/data/fotos_rot/3004_I{i}_{j+1}_T22_r.png')
+            imagen = imagen[:,:,0]
+            imagen0 = imagen0 + imagen
+        imagen = imagen0
+        imagen = rotate_bound(imagen, -27)
+        altura_rec = 30
+        ancho_rec = 120
+        x_rec1 = 520
+        y_rec1 = 480
+        x_rec2 = 520
+        y_rec2 = 585 
+        recorte1 = imagen[y_rec1:y_rec1+altura_rec, x_rec1:x_rec1+ancho_rec]
+        recorte2 = imagen[y_rec2:y_rec2+altura_rec, x_rec2:x_rec2+ancho_rec]
+
+        fase1, fase2 = fase_hilbert(recorte1, recorte2, 0.11666666666666667)
+        fases1[i] = fase1
+        fases2[i] = fase2
+        print(i)
+
+    exp_1 = np.exp(1j*fases1)
+    exp_2 = np.exp(1j*fases2)
+    dif = np.unwrap(np.angle(exp_1/exp_2))
+    plt.plot(np.arange(256), dif-min(dif))
     plt.show()
