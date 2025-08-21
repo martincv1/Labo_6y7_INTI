@@ -31,11 +31,11 @@ y_rec2 = 510
 
 def extraer_datos(nombre_archivo):
     # Expresión regular para capturar la hora y el valor después de la I
-    patron = r"_(\d{2})-(\d{2})-(\d{2})_I(\d+)_"
+    patron = r"_(\d{2})-(\d{2})-(\d{2})-(\d{3})_I(\d+)_"  #ahora busca ms tmb
     coincidencia = re.search(patron, nombre_archivo)
     if coincidencia:
-        hora, minuto, segundo, valor_I = coincidencia.groups()
-        dt = datetime.strptime(f"{hora}:{minuto}:{segundo}", "%H:%M:%S")
+        hora, minuto, segundo, milisegundo, valor_I = coincidencia.groups()
+        dt = datetime.strptime(f"{hora}:{minuto}:{segundo}.{milisegundo}", "%H:%M:%S.%f")
             
         try:
             with open(nombre_archivo, 'rb') as f:
@@ -48,7 +48,7 @@ def extraer_datos(nombre_archivo):
                 recorte2 = imag_rot[y_rec2:y_rec2+altura_rec, x_rec2:x_rec2+ancho_rec]
 
                 # Obtengo fase a partir de ordenada al origen de  hilbert
-                fase_mod, fase_nomod  = funciones.fase_hilbert(recorte1, recorte2, 0.09, 0.03)  
+                fase_mod, fase_nomod  = funciones.fase_hilbert(recorte1, recorte2, 0.12, 0.02)  
                 fasor_mod = np.exp(1j*fase_mod)
                 fasor_nomod = np.exp(1j*fase_nomod)
                 return dt.time(), fase_mod, fase_nomod, int(valor_I)
@@ -58,7 +58,7 @@ def extraer_datos(nombre_archivo):
     return None, None, None, None  
 
 
-dir_path = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo'
+dir_path = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo_largo0702'
 paths = [os.path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('.pkl')]
 #paths = []
 #for archivo in os.listdir(dir_path):
@@ -68,8 +68,9 @@ paths = [os.path.join(dir_path, f) for f in os.listdir(dir_path) if f.endswith('
 
 data = {
     40: {"dts": [], "fase_nm": [], "fase_m": []},
-    120: {"dts": [], "fase_nm": [], "fase_m": []},
-    200: {"dts": [], "fase_nm": [], "fase_m": []}
+    128: {"dts": [], "fase_nm": [], "fase_m": []},
+    230: {"dts": [], "fase_nm": [], "fase_m": []},
+    60: {"dts": [], "fase_nm": [], "fase_m": []}
     }
 
 for p in paths:
@@ -115,27 +116,39 @@ fase_40_limpia = fase_40[mask]
 
 
 
-complejos_120 = np.exp(1j*dfs[120]["Fase_no_modulada"])
-complejos_120_mod = np.exp(1j*dfs[120]["Fase_modulada"])
-div_120 = complejos_120/complejos_120_mod
-fase_120 = np.angle(div_120)
+complejos_128 = np.exp(1j*dfs[128]["Fase_no_modulada"])
+complejos_128_mod = np.exp(1j*dfs[128]["Fase_modulada"])
+div_128 = complejos_128/complejos_128_mod
+fase_128 = np.angle(div_128)
 
-complejos_200 = np.exp(1j*dfs[200]["Fase_no_modulada"])
-complejos_200_mod = np.exp(1j*dfs[200]["Fase_modulada"])
-div_200 = complejos_200/complejos_200_mod
-fase_200 = np.angle(div_200)
+# Bloque para 230 (modificado desde 200)
+complejos_230 = np.exp(1j*dfs[230]["Fase_no_modulada"])
+complejos_230_mod = np.exp(1j*dfs[230]["Fase_modulada"])
+div_230 = complejos_230/complejos_230_mod
+fase_230 = np.angle(div_230)
+
+# Nuevo bloque para 60 (agregado)
+complejos_60 = np.exp(1j*dfs[60]["Fase_no_modulada"])
+complejos_60_mod = np.exp(1j*dfs[60]["Fase_modulada"])
+div_60 = complejos_60/complejos_60_mod
+fase_60 = np.angle(div_60)
 
 #defino mi array de tiempos a partir de data.datatime
 horas_segundos_40 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[40]["Hora"]]
-horas_segundos_120 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[120]["Hora"]]
-horas_segundos_200 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[200]["Hora"]]
+horas_segundos_128 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[128]["Hora"]]
+horas_segundos_230 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[230]["Hora"]]
+horas_segundos_60 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[60]["Hora"]]
 
-horas_segundos_200 = np.array(horas_segundos_200)
-tiempo_centrado_200 = horas_segundos_200 - horas_segundos_200.min()
+
+horas_segundos_230 = np.array(horas_segundos_230)
+tiempo_centrado_230 = horas_segundos_230 - horas_segundos_230.min()
 horas_segundos_40 = np.array(horas_segundos_40)
 tiempo_centrado_40 = horas_segundos_40 - horas_segundos_40.min()
-horas_segundos_120 = np.array(horas_segundos_120)
-tiempo_centrado_120 = horas_segundos_120 - horas_segundos_120.min()
+horas_segundos_128 = np.array(horas_segundos_128)
+tiempo_centrado_128 = horas_segundos_128 - horas_segundos_128.min()
+horas_segundos_60 = np.array(horas_segundos_60)
+tiempo_centrado_60 = horas_segundos_60 - horas_segundos_60.min()
+
 horas_segundos_40_filtrado = np.array(horas_segundos_40)[mask]
 
 plt.scatter(tiempo_centrado_40, fase_40)
@@ -150,15 +163,20 @@ plt.show()
 #plt.title("Intensidad 40")
 #plt.legend()
 #plt.show()
-plt.scatter(tiempo_centrado_120, fase_120)
+plt.scatter(tiempo_centrado_128, fase_128)
 plt.xlabel("Tiempo [s]")
 plt.ylabel("Diferencia de Fase [rad]")
-plt.title("Intensidad 120")
+plt.title("Intensidad 128")
 plt.show()
-plt.scatter(tiempo_centrado_200, fase_200)
+plt.scatter(tiempo_centrado_230, fase_230)
 plt.xlabel("Tiempo [s]")
 plt.ylabel("Diferencia de Fase [rad]")
-plt.title("Intensidad 200")
+plt.title("Intensidad 230")
+plt.show()
+plt.scatter(tiempo_centrado_60, fase_60)
+plt.xlabel("Tiempo [s]")
+plt.ylabel("Diferencia de Fase [rad]")
+plt.title("Intensidad 60")
 plt.show()
 
 print(dfs[40]["Fase_no_modulada"], type(dfs[40]["Fase_no_modulada"]))

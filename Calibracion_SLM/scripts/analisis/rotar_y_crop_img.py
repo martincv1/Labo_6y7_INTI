@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import pickle
 import matplotlib.pyplot as plt
 
 def rotate_bound(image, angle):
@@ -22,7 +23,21 @@ def rotate_bound(image, angle):
     # perform the actual rotation and return the image
     return cv2.warpAffine(image, M, (nW, nH))
 
+nombre_archivo ='/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo_rapido/2606_11-30-44_I40_32_T20.pkl'
 
+with open(nombre_archivo, 'rb') as f:
+            imag = pickle.load(f)
+                
+ # roto la imagen para alinear las franjas
+imag_rot = rotate_bound(imag, 2)
+
+plt.imshow(imag)
+plt.show()
+plt.imshow(imag_rot)
+plt.show()
+# selecciono las zonas de interés
+#recorte1 = imag_rot[y_rec1:y_rec1+altura_rec, x_rec1:x_rec1+ancho_rec]
+#recorte2 = imag_rot[y_rec2:y_rec2+altura_rec, x_rec2:x_rec2+ancho_rec]
 
 fecha = 3004
 promediar = False
