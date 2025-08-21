@@ -8,16 +8,18 @@ from scipy.signal import hilbert, find_peaks
 from scipy.optimize import curve_fit
 import cv2
 from funciones import fase_hilbert, rotate_bound
+import pandas as pd
+from scipy.interpolate import interp1d
 
 
 dir_path = r'Calibracion_SLM\data\fase_tension_4.32-0.82'
 
 file_path = r'Calibracion_SLM\data\fase_tension_4.32-0.82\1306_I150_T21.pkl'
-with open(file_path, mode = 'rb') as f:
-    imagen = pickle.load(f)
-imagen = rotate_bound(imagen, 2)
-plt.imshow(imagen)
-plt.show()
+# with open(file_path, mode = 'rb') as f:
+#     imagen = pickle.load(f)
+# imagen = rotate_bound(imagen, 2)
+# plt.imshow(imagen)
+# plt.show()
 prueba = False
 if prueba:
     with open(file_path, mode = 'rb') as f:
@@ -111,7 +113,7 @@ if prueba:
     plt.plot(lin1)
     plt.plot(lin2)
     plt.show()
-video = True
+video = False
 if video:
     for i in np.arange(0,255,5):
         file_path = os.path.join(dir_path, f'1306_I{i}_T21.pkl')
@@ -123,7 +125,7 @@ if video:
         plt.imshow(imag[150:800,100:1300])
         plt.pause(.05)
         plt.cla()
-run = True
+run = False
 if run:
     def lineal(x, m, c):
         return m*x+c
@@ -165,11 +167,11 @@ if run:
         p1, _ = find_peaks(np.abs(f_signal1)[:n//2], prominence = 0.25*np.max(np.abs(f_signal1)))
         p2, _ = find_peaks(np.abs(f_signal2)[:n//2], prominence = 0.25*np.max(np.abs(f_signal2)))
         print(frecuencias[p1])
-        plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2])
-        plt.scatter(frecuencias[p1], np.abs(f_signal1)[p1], color ='r')
-        plt.title(f'I = {i}. 1: {len(p1)}, 2: {len(p2)}')
-        plt.pause(.1)
-        plt.cla()
+        # plt.plot(frecuencias[:n//2], np.abs(f_signal1)[:n//2])
+        # plt.scatter(frecuencias[p1], np.abs(f_signal1)[p1], color ='r')
+        # plt.title(f'I = {i}. 1: {len(p1)}, 2: {len(p2)}')
+        # plt.pause(.05)
+        # plt.cla()
     
         #freq1 = np.max(frecuencias[p1])
         #freq2 = np.max(frecuencias[p2])
@@ -234,6 +236,8 @@ if run:
     plt.ylabel('Diferencia de fase')
     #plt.savefig('Calibracion_SLM/data/resultados_4.32-0.82.png')
     plt.show()
+    datos = pd.DataFrame(np.unwrap(dif_compleja))
+    datos.to_csv('Calibracion_SLM/data/0.82-4.32.csv')
 
 intento = False
 if intento:
@@ -298,3 +302,42 @@ if intento:
     dif = np.unwrap(np.angle(exp_1/exp_2))
     plt.plot(np.arange(256), dif-min(dif))
     plt.show()
+
+
+datos = pd.read_csv('Calibracion_SLM/data/0.82-4.32.csv')
+datos = datos.iloc[:,1]
+df = pd.read_csv('Calibracion_SLM/data/gamma_curve_0.csv')
+df = df.iloc[1:,0]
+gamma = np.array(df.astype(float))
+print(gamma)
+plt.plot(gamma)
+plt.xlabel(' "Valor de gris" ')
+plt.ylabel('LUT')
+plt.show()
+print(max(gamma), min(gamma))
+v1=4.32
+v2=0.82
+max_gamma = 330
+tension = v2 + (v1-v2)*gamma/max_gamma
+plt.plot(tension)
+plt.xlabel(' "Valor de gris" ')
+plt.ylabel('Voltaje')
+plt.show()
+tension_gris = np.zeros(256)
+for i in range(len(gamma)):
+    if i%4 == 0:
+        tension_gris[i//4] = tension[i]
+plt.scatter(np.arange(256), tension_gris)
+
+f_interp = interp1d(np.arange(256), tension_gris, kind='linear')
+plt.scatter(np.arange(0, 255, 5), f_interp(np.arange(0, 255, 5)), color='red')
+plt.show()
+print(len(datos), len(np.arange(0,255,5)))
+plt.scatter(np.arange(0, 255, 5), datos-min(datos))
+plt.xlabel('Valor de gris')
+plt.ylabel('Diferencia de fase (rad)')
+plt.show()
+plt.scatter(f_interp(np.arange(0, 255, 5)), datos-min(datos))
+plt.xlabel('Voltaje (V)')
+plt.ylabel('Diferencia de fase (rad)')
+plt.show()
