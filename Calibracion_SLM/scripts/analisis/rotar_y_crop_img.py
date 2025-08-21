@@ -29,12 +29,23 @@ with open(nombre_archivo, 'rb') as f:
             imag = pickle.load(f)
                 
  # roto la imagen para alinear las franjas
-imag_rot = rotate_bound(imag, 2)
+imag_rot = rotate_bound(imag, 3.5)
+imag *= 255//np.max(imag)
 
-plt.imshow(imag)
+y_ini = 180 
+y_fin = 820
+x_ini = 250
+x_fin = 1280
+
+recorte = imag_rot[y_ini:y_fin, x_ini:x_fin]
+
+plt.imshow(imag, cmap = "gray")
 plt.show()
-plt.imshow(imag_rot)
+plt.imshow(imag_rot, cmap = "gray")
 plt.show()
+plt.imshow(recorte, cmap='gray')
+plt.show()
+plt.imsave('/home/lorenzo/Labo_6/imagen_crudeli.png', recorte, cmap='gray')
 # selecciono las zonas de interés
 #recorte1 = imag_rot[y_rec1:y_rec1+altura_rec, x_rec1:x_rec1+ancho_rec]
 #recorte2 = imag_rot[y_rec2:y_rec2+altura_rec, x_rec2:x_rec2+ancho_rec]

@@ -111,7 +111,7 @@ div_40 = complejos_40 / complejos_40_mod
 fase_40 = np.angle(div_40)
 
 
-mask = fase_40 > 0
+mask = fase_40 < 2
 fase_40_limpia = fase_40[mask]
 
 
@@ -133,6 +133,15 @@ complejos_60_mod = np.exp(1j*dfs[60]["Fase_modulada"])
 div_60 = complejos_60/complejos_60_mod
 fase_60 = np.angle(div_60)
 
+mask_60 = fase_60 >0
+fase_60_limpia = fase_60[mask_60]
+
+# Alternativa: Calcular fase_mod - fase_nomod (asegurando que sea positiva)
+#fase_40 = np.angle(complejos_40_mod * np.conj(complejos_40))  # = fase_mod - fase_nomod
+#fase_128 = np.angle(complejos_128_mod * np.conj(complejos_128))
+#fase_230 = np.angle(complejos_230_mod * np.conj(complejos_230))
+#fase_60 = np.angle(complejos_60_mod * np.conj(complejos_60))
+
 #defino mi array de tiempos a partir de data.datatime
 horas_segundos_40 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[40]["Hora"]]
 horas_segundos_128 = [h.hour * 3600 + h.minute * 60 + h.second for h in dfs[128]["Hora"]]
@@ -150,11 +159,23 @@ horas_segundos_60 = np.array(horas_segundos_60)
 tiempo_centrado_60 = horas_segundos_60 - horas_segundos_60.min()
 
 horas_segundos_40_filtrado = np.array(horas_segundos_40)[mask]
+tiempo_cen_40 = horas_segundos_40_filtrado - horas_segundos_40_filtrado.min()
+horas_segundos_60_filtrado = np.array(horas_segundos_60)[mask_60]
+tiempo_cen_60 = horas_segundos_60_filtrado - horas_segundos_60_filtrado.min()
 
-plt.scatter(tiempo_centrado_40, fase_40)
+plt.scatter(tiempo_cen_40, fase_40_limpia, label =f"Stdv ={np.round(np.std(fase_40_limpia), decimals = 3)}")
+plt.axhline(np.mean(fase_40_limpia), color='red', linestyle='--', label=f'Media = {np.round(np.mean(fase_40_limpia), decimals = 2)}')
 plt.xlabel("Tiempo [s]")
 plt.ylabel("Diferencia de Fase [rad]")
-plt.title("Intensidad 40")
+plt.legend()
+#plt.title("Intensidad 40")
+plt.show()
+plt.scatter(tiempo_cen_60, fase_60_limpia, label =f"Stdv ={np.round(np.std(fase_60_limpia), decimals = 3)}")
+plt.axhline(np.mean(fase_60_limpia), color='red', linestyle='--', label=f'Media = {np.round(np.mean(fase_60_limpia), decimals = 2)}')
+plt.xlabel("Tiempo [s]")
+plt.ylabel("Diferencia de Fase [rad]")
+plt.legend()
+#plt.title("Intensidad 60")
 plt.show()
 #plt.scatter(horas_segundos_40_filtrado, fase_40_limpia)
 #plt.axhline(np.mean(fase_40_limpia), color='red', linestyle='--', label='Media')
@@ -173,11 +194,7 @@ plt.xlabel("Tiempo [s]")
 plt.ylabel("Diferencia de Fase [rad]")
 plt.title("Intensidad 230")
 plt.show()
-plt.scatter(tiempo_centrado_60, fase_60)
-plt.xlabel("Tiempo [s]")
-plt.ylabel("Diferencia de Fase [rad]")
-plt.title("Intensidad 60")
-plt.show()
+
 
 print(dfs[40]["Fase_no_modulada"], type(dfs[40]["Fase_no_modulada"]))
 print(dfs[40]["Hora"])

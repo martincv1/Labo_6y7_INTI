@@ -133,6 +133,9 @@ if graficar:
     div_250 = complejos_250/complejos_250_mod
     fase_250 = np.angle(div_250)
 
+    mask_2 = fase_250 > -1.8
+    fase_250_clean = fase_250[mask_2]
+
     #defino mi array de tiempos a partir de data.datatime,
     # aca convierte todo a segundos pero dado que tenemos precision de milisegundos no es lo ideal
     horas_segundos_40 = [h.hour * 3600 + h.minute * 60 + h.second + h.microsecond / 1_000_000 for h in dfs[40]["Hora"]]
@@ -158,43 +161,83 @@ if graficar:
     horas_segundos_250 = np.array(horas_segundos_250)
     tiempo_centrado_250 = horas_segundos_250 - horas_segundos_250.min()
 
-    plt.scatter(tiempo_centrado_40, fase_40)
+    horas_segundos_40_filtrado = np.array(horas_segundos_40)[mask]
+    horas_segundos_250_filtrado = np.array(horas_segundos_250)[mask_2]
+    tiempo_centr_250 = horas_segundos_250_filtrado - horas_segundos_250_filtrado.min()
+
+    plt.scatter(tiempo_centrado_40, fase_40, label =f"Stdv ={np.round(np.std(fase_40), decimals = 3)}")
+    plt.axhline(np.mean(fase_40), color='red', linestyle='--', label=f'Media = {np.round(np.mean(fase_40), decimals = 2)}')
     plt.xlabel("Tiempo [s]")
     plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 40")
+    #plt.title("Valor de gris 40")
+    plt.legend()
     plt.show()
-    plt.scatter(tiempo_centrado_ms_40, fase_40)
-    plt.xlabel("Tiempo [ms]")
-    plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 40")
-    plt.show()
-    #plt.scatter(horas_segundos_40_filtrado, fase_40_limpia)horas_milisegundos_40
-    #plt.axhline(np.mean(fase_40_limpia), color='red', linestyle='--', label='Media')
+    #plt.scatter(tiempo_centrado_ms_40, fase_40)
+    #plt.xlabel("Tiempo [ms]")
+    #plt.ylabel("Diferencia de Fase [rad]")
+    #plt.title("Intensidad 40")
+    #plt.show()
+    #plt.scatter(horas_segundos_40_filtrado, fase_40_limpia)
+    #plt.axhline(np.mean(fase_40_limpia), color='red', linestyle='--', label=f'Media = {np.round(np.mean(fase_40_limpia), decimals = 2)}')
     #plt.xlabel("Tiempo [s]")
     #plt.ylabel("Diferencia de Fase [rad]")
     #plt.title("Intensidad 40")
     #plt.legend()
     #plt.show()
-    plt.scatter(tiempo_centrado_128, fase_128)
-    plt.xlabel("Tiempo [s]")
-    plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 128")
-    plt.show()
-    plt.scatter(tiempo_centrado_180, fase_180)
-    plt.xlabel("Tiempo [s]")
-    plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 180")
-    plt.show()
-    plt.scatter(tiempo_centrado_230, fase_230)
-    plt.xlabel("Tiempo [s]")
-    plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 230")
-    plt.show()
-    plt.scatter(tiempo_centrado_250, fase_250)
-    plt.xlabel("Tiempo [s]")
-    plt.ylabel("Diferencia de Fase [rad]")
-    plt.title("Intensidad 250")
+    #plt.scatter(tiempo_centrado_128, np.abs(fase_128), label =f"Stdv ={np.round(np.std(np.abs(fase_128)), decimals = 3)}")
+    #plt.axhline(np.mean(np.abs(fase_128)), color='red', linestyle='--', label=f'Media = {np.round(np.mean(np.abs(fase_128)), decimals = 2)}')
+    #plt.xlabel("Tiempo [s]")
+    #plt.ylabel("Diferencia de Fase [rad]")
+    #plt.title("Intensidad 128")
+    #plt.legend()
+    #plt.show()
+    #plt.scatter(tiempo_centrado_180, fase_180)
+    #plt.xlabel("Tiempo [s]")
+    #plt.ylabel("Diferencia de Fase [rad]")
+    #plt.title("Intensidad 180")
+    #plt.show()
+    #plt.scatter(tiempo_centrado_230, fase_230)
+    #plt.xlabel("Tiempo [s]")
+    #plt.ylabel("Diferencia de Fase [rad]")
+    #plt.title("Intensidad 230")
+    #plt.show()
+    #plt.scatter(tiempo_centr_250, np.abs(fase_250_clean), label =f"Stdv ={np.round(np.std(np.abs(fase_250_clean)), decimals = 3)}")
+    #plt.axhline(np.mean(np.abs(fase_250_clean)), color='red', linestyle='--', label=f'Media = {np.round(np.mean(np.abs(fase_250_clean)), decimals = 2)}')
+    #plt.xlabel("Tiempo [s]")
+    #plt.ylabel("Diferencia de Fase [rad]")
+    #plt.legend()
+    #plt.title("Valor de gris 250")
     plt.show()
 
     print(dfs[40]["Fase_no_modulada"], type(dfs[40]["Fase_no_modulada"]))
     print(dfs[40]["Hora"])
+
+# Elegí uno de los archivos .pkl que quieras visualizar
+archivo_imagen = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo_corto0702/0207_12-02-40-093_I40_237_T20.pkl'
+archivo_imagen_1 = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo_corto0702/0207_12-02-40-302_I40_238_T20.pkl'
+archivo_imagen_2 = '/home/lorenzo/Labo_6y7_INTI/Calibracion_SLM/data/fase_tiempo_corto0702/0207_12-02-40-505_I40_239_T20.pkl'
+
+# Abrir el archivo pickle
+with open(archivo_imagen, 'rb') as f:
+    imagen = pickle.load(f)
+with open(archivo_imagen_1, 'rb') as f:
+    imagen_1 = pickle.load(f)
+with open(archivo_imagen_2, 'rb') as f:
+    imagen_2 = pickle.load(f)
+
+# Rotar y recortar (como en tu código)
+imagen_rotada = funciones.rotate_bound(imagen, 1.7)
+imagen_rotada_1 = funciones.rotate_bound(imagen_1, 3.5)
+imagen_rotada_2 = funciones.rotate_bound(imagen_2, 2)
+recorte1 = imagen_rotada_1[160:820, 214:1290]
+
+#plt.imshow(imagen_rotada, cmap='gray')
+#plt.axis('off')
+#plt.show()
+plt.imshow(imagen_rotada_1, cmap='gray')
+plt.axis('off')
+plt.show()
+plt.imshow(recorte1, cmap='gray')
+plt.axis('off')
+#plt.savefig("/home/lorenzo/Labo_6/recorte1_sin_marco.png", bbox_inches='tight', pad_inches=0)
+plt.show()
