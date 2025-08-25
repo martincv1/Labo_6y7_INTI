@@ -5,14 +5,15 @@ from hedslib.heds_types import *
 import time
 import pickle
 import cv2
+import os
 
-from Calibracion_SLM.scripts.adquisicion_y_control.acquisition_tools import jai_camera
-import Calibracion_SLM.scripts.adquisicion_y_control.slm_tools as slm_tools
+from acquisition_tools import jai_camera
+import slm_tools
 
 
 camera = jai_camera()
 
-intensidades_array = np.arange(0, 255, 25)
+intensidades_array = [0]
 print(intensidades_array)
 # Inicializo el SLM
 # Init HOLOEYE SLM Display SDK and make sure to check for the correct version this script was written with:
@@ -25,12 +26,16 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 
 # Este es el bucle de medición
 resol_SLM = (1080, 1920)
-segundos = 120
+segundos = 10
 print(f'Espero {segundos} antes de empezar')
 time.sleep(segundos)
-fecha = '0506'
+fecha = '0807'
 T_dia = 22
-cant_muestras_promediadas = 3
+cant_muestras_promediadas = 1
+cant_ims_por_intensidad = 10
+save_dir = 'data\Topografia_en0_2'
+
+os.makedirs(save_dir, exist_ok=True)
 for i in intensidades_array:
     print(f"Mostrando patrón con intensidad: {i}")
     patron = slm_tools.crear_patron(resol_SLM, "horizontal", "sup", i)
@@ -44,12 +49,15 @@ for i in intensidades_array:
 
     camera.reset_queue()
 
-    if cant_muestras_promediadas == 1:
-        frame = jai_camera.get_frame(camera)
-        cv2.imwrite(f'fotos/{fecha}_I{i}_T{T_dia}.png', frame)
-    else:
-        frame = jai_camera.get_average_frame(camera, cant_muestras_promediadas)        
-        with open(f'fotos/pik/{fecha}_I{i}_T{T_dia}.pkl', 'wb') as f:
-            pickle.dump(frame, f)
+    for kim in range(cant_ims_por_intensidad):
+        filename = f"{fecha}_I{i}_{kim}_T{T_dia}"
+        file_path = os.path.join(save_dir, filename)
+        if cant_muestras_promediadas == 1:
+            frame = camera.get_frame()
+            cv2.imwrite(f'{file_path}.png', frame)
+        else:
+            frame = camera.get_average_frame(cant_muestras_promediadas)        
+            with open(f'{file_path}.pkl', 'wb') as f:
+                pickle.dump(frame, f)
 
-jai_camera.close()
+camera.close()
