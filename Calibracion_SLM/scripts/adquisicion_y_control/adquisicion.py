@@ -29,11 +29,11 @@ resol_SLM = (1080, 1920)
 segundos = 10
 print(f'Espero {segundos} antes de empezar')
 time.sleep(segundos)
-fecha = '0807'
+fecha = '2608'
 T_dia = 22
 cant_muestras_promediadas = 1
 cant_ims_por_intensidad = 10
-save_dir = 'data\Topografia_en0_2'
+save_dir = 'data\Topografia_en0_2_pruebaclase'
 
 os.makedirs(save_dir, exist_ok=True)
 for i in intensidades_array:
