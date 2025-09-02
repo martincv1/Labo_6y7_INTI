@@ -1,5 +1,6 @@
 # Ignorar datos e imágenes pesadas
 **/data/*
+data/*
 **/mediciones/*
 *.tif
 *.png
