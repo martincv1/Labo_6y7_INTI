@@ -303,41 +303,89 @@ if intento:
     plt.plot(np.arange(256), dif-min(dif))
     plt.show()
 
+fasevolt = False
+if fasevolt:
+    datos = pd.read_csv('Calibracion_SLM/data/0.82-4.32.csv')
+    datos = datos.iloc[:,1]
+    df = pd.read_csv('Calibracion_SLM/data/gamma_curve_0.csv')
+    df = df.iloc[1:,0]
+    gamma = np.array(df.astype(float))
+    print(gamma)
+    plt.plot(gamma)
+    plt.xlabel(' "Valor de gris" ')
+    plt.ylabel('LUT')
+    plt.show()
+    print(max(gamma), min(gamma))
+    v1=4.32
+    v2=0.82
+    max_gamma = 330
+    tension = v2 + (v1-v2)*gamma/max_gamma
+    plt.plot(tension)
+    plt.xlabel(' "Valor de gris" ')
+    plt.ylabel('Voltaje')
+    plt.show()
+    tension_gris = np.zeros(256)
+    for i in range(len(gamma)):
+        if i%4 == 0:
+            tension_gris[i//4] = tension[i]
+    plt.scatter(np.arange(256), tension_gris)
 
-datos = pd.read_csv('Calibracion_SLM/data/0.82-4.32.csv')
-datos = datos.iloc[:,1]
-df = pd.read_csv('Calibracion_SLM/data/gamma_curve_0.csv')
-df = df.iloc[1:,0]
-gamma = np.array(df.astype(float))
-print(gamma)
-plt.plot(gamma)
-plt.xlabel(' "Valor de gris" ')
-plt.ylabel('LUT')
-plt.show()
-print(max(gamma), min(gamma))
-v1=4.32
-v2=0.82
-max_gamma = 330
-tension = v2 + (v1-v2)*gamma/max_gamma
-plt.plot(tension)
-plt.xlabel(' "Valor de gris" ')
-plt.ylabel('Voltaje')
-plt.show()
-tension_gris = np.zeros(256)
-for i in range(len(gamma)):
-    if i%4 == 0:
-        tension_gris[i//4] = tension[i]
-plt.scatter(np.arange(256), tension_gris)
+    f_interp = interp1d(np.arange(256), tension_gris, kind='linear')
+    plt.scatter(np.arange(0, 255, 5), f_interp(np.arange(0, 255, 5)), color='red')
+    plt.show()
+    print(len(datos), len(np.arange(0,255,5)))
+    plt.scatter(np.arange(0, 255, 5), datos-min(datos))
+    plt.xlabel('Valor de gris')
+    plt.ylabel('Diferencia de fase (rad)')
+    plt.show()
+    plt.scatter(f_interp(np.arange(0, 255, 5)), datos-min(datos))
+    plt.xlabel('Voltaje (V)')
+    plt.ylabel('Diferencia de fase (rad)')
+    plt.show()
 
-f_interp = interp1d(np.arange(256), tension_gris, kind='linear')
-plt.scatter(np.arange(0, 255, 5), f_interp(np.arange(0, 255, 5)), color='red')
-plt.show()
-print(len(datos), len(np.arange(0,255,5)))
-plt.scatter(np.arange(0, 255, 5), datos-min(datos))
-plt.xlabel('Valor de gris')
-plt.ylabel('Diferencia de fase (rad)')
-plt.show()
-plt.scatter(f_interp(np.arange(0, 255, 5)), datos-min(datos))
-plt.xlabel('Voltaje (V)')
-plt.ylabel('Diferencia de fase (rad)')
+
+# foto = cv2.imread('Calibracion_SLM/data/foto_prueba.png')
+
+# plt.imshow(foto)
+# plt.show()
+
+# recorte1 = foto[180:220, 350:650, 0]
+# recorte2 = foto[300:340, 350:650, 0]
+
+# sig = np.sum(recorte1, axis = 0)
+# sig = sig - np.mean(sig)
+# plt.plot(sig)
+# plt.show()
+
+# fsig = np.fft.fft(sig)
+# freqsig = np.fft.fftfreq(len(sig), d = 1)
+# nsig = len(np.abs(fsig))
+
+# indsig = np.argmax(np.abs(fsig)[:nsig//2])
+# plt.scatter(freqsig[indsig], np.abs(fsig)[indsig], color = 'r')
+# plt.plot(freqsig[:nsig//2], np.abs(fsig)[:nsig//2])
+# print(freqsig[indsig])
+# plt.show()
+
+# fas1, fas2 = fase_hilbert(recorte1, recorte2, 0.09333333333333334)
+
+# print(fas1, fas2)
+fases1 = []
+fases2 = []
+for i in np.arange(0, 255, 5):
+    imag = cv2.imread(f'data/fase_gamma/0209_I{i}_T21.png')
+    recorte1 = imag[180:220, 350:650, 0]
+    recorte2 = imag[300:340, 350:650, 0]
+
+    fase1, fase2 = fase_hilbert(recorte2, recorte1, 0.09333333333333334)
+    fases1.append(fase1)
+    fases2.append(fase2)
+fases1 = np.array(fases1)
+fases2 = np.array(fases2)
+
+exp_1 = np.exp(1j*fases1)
+exp_2 = np.exp(1j*fases2)
+dif = np.unwrap(np.angle(exp_1/exp_2))
+
+plt.scatter(np.arange(0, 255, 5), dif-min(dif))
 plt.show()
