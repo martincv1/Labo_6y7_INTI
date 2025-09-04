@@ -223,10 +223,10 @@ resol_SLM = (1080, 1920)
 tiempo_espera_inicial = 180
 print(f'Espero {tiempo_espera_inicial} s antes de empezar')
 time.sleep(tiempo_espera_inicial)
-fecha = '0209'
+fecha = '0409'
 T_dia = 21
 cant_promedio = 1
-save_dir = r"data\fase_gamma_lineal"
+save_dir = r"data\fase_gamma_lineal_2daronda"
 cant_pruebas_retrieve = 4 
 tiempo_prueba = 0.05
 
