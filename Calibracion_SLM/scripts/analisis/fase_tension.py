@@ -344,7 +344,7 @@ if fasevolt:
     plt.show()
 
 
-# foto = cv2.imread('Calibracion_SLM/data/foto_prueba.png')
+# foto = cv2.imread('data/fase_gamma_lineal/0209_I105_T21.png')
 
 # plt.imshow(foto)
 # plt.show()
@@ -373,11 +373,11 @@ if fasevolt:
 fases1 = []
 fases2 = []
 for i in np.arange(0, 255, 5):
-    imag = cv2.imread(f'data/fase_gamma/0209_I{i}_T21.png')
+    imag = cv2.imread(f'data/fase_gamma_lineal/0209_I{i}_T21.png')
     recorte1 = imag[180:220, 350:650, 0]
     recorte2 = imag[300:340, 350:650, 0]
 
-    fase1, fase2 = fase_hilbert(recorte2, recorte1, 0.09333333333333334)
+    fase1, fase2 = fase_hilbert(recorte1, recorte2, 0.09333333333333334)
     fases1.append(fase1)
     fases2.append(fase2)
 fases1 = np.array(fases1)
@@ -387,5 +387,18 @@ exp_1 = np.exp(1j*fases1)
 exp_2 = np.exp(1j*fases2)
 dif = np.unwrap(np.angle(exp_1/exp_2))
 
-plt.scatter(np.arange(0, 255, 5), dif-min(dif))
+# datos = pd.DataFrame(np.unwrap(dif))
+# datos.to_csv('Calibracion_SLM/data/fase_medida_lineal_real.csv', index = False) 
+max_int = 33
+plt.scatter(np.arange(0, 255, 5)[:max_int], dif[:max_int]-min(dif[:max_int]))
+plt.xlabel('Valor de gris')
+plt.ylabel('Fase [rad]')
+plt.axhline(2*np.pi)
+# plt.savefig('Calibracion_SLM/data/ejemplo_cali.png')
 plt.show()
+
+# pru = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal.csv')
+# print(pru)
+# pru = np.array(pru)
+# plt.scatter(np.arange(0, 255, 5), pru-min(pru), color = 'r')
+# plt.show()

@@ -9,7 +9,13 @@ from gamma_curver import GammaCurver
 
 #Importo la gamma curve actual
 
-df = pd.read_csv("/home/lorenzo/Labo_6/SLM_csvs/5-6_C20_lin2,1pi_532nm_274-148V.csv", header = None)
+# df = pd.read_csv("/home/lorenzo/Labo_6/SLM_csvs/5-6_C20_lin2,1pi_532nm_274-148V.csv", header = None)
+fase_medida = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal_real.csv')
+fase_medida = np.array(fase_medida.iloc[:,0])
+fase_medida= fase_medida-min(fase_medida)
+print(fase_medida)
+df = pd.read_csv('../curva_gamma_lineal.csv', header = None)
+df = df.astype(np.uint16)
 curva_gamma_1024= df[0].values
 valores_gris = np.arange(0, 1024)
 print(curva_gamma_1024)
@@ -20,15 +26,21 @@ plt.show()
 curva_gamma_256 = curva_gamma_1024[::4] ## tomo solo 1 valor cada 4
 
 
-g = GammaCurver(phase_measurement= fase_medida, current_gamma_curve= curva_gamma_256, 
-                graylevels=np.arange(256),
+g = GammaCurver(phase_measurement= fase_medida[:33], current_gamma_curve= curva_gamma_256, 
+                graylevels=np.arange(0, 255, 5)[:33],
                 verbose = True)
 
 g.plot_result()
 
+# plt.scatter(np.arange(330), g.spline_constrained(np.arange(330)))
+# plt.show()
+
 # Si esta ok la linearizo y guardo
 
 g.linearize_gamma()
-g.plot_new_gamma()
-g.save_csv("gamma_curve_g.csv")
+
+plt.plot(g.new_gamma_curve)
+plt.show()
+# g.plot_new_gamma()
+# g.save_csv("gamma_curve_g.csv")
 

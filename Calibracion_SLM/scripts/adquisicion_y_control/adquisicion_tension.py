@@ -226,7 +226,7 @@ time.sleep(tiempo_espera_inicial)
 fecha = '0209'
 T_dia = 21
 cant_promedio = 1
-save_dir = r"data\fase_gamma"
+save_dir = r"data\fase_gamma_lineal"
 cant_pruebas_retrieve = 4 
 tiempo_prueba = 0.05
 
