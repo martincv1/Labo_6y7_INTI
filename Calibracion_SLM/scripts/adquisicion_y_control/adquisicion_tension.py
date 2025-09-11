@@ -220,13 +220,13 @@ assert slm.errorCode() == HEDSERR_NoError, HEDS.SDK.ErrorString(slm.errorCode())
 #Defino variables para realizar la medición
 
 resol_SLM = (1080, 1920)
-tiempo_espera_inicial = 180
+tiempo_espera_inicial = 240
 print(f'Espero {tiempo_espera_inicial} s antes de empezar')
 time.sleep(tiempo_espera_inicial)
-fecha = '0409'
-T_dia = 21
+fecha = '0809'
+T_dia = 20
 cant_promedio = 1
-save_dir = r"data\fase_gamma_lineal_2daronda"
+save_dir = r"data\fase_gamma_lineal_383"
 cant_pruebas_retrieve = 4 
 tiempo_prueba = 0.05
 

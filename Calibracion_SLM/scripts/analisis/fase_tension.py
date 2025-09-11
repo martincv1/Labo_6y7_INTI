@@ -343,62 +343,90 @@ if fasevolt:
     plt.ylabel('Diferencia de fase (rad)')
     plt.show()
 
+ubicar_pico = True
+if ubicar_pico:
 
-# foto = cv2.imread('data/fase_gamma_lineal/0209_I105_T21.png')
+    foto = cv2.imread('data/fase_gamma_lineal_383/0809_I45_T20.png')
 
-# plt.imshow(foto)
+    plt.imshow(foto)
+    plt.axhline(300, color = 'r')
+    plt.axhline(340, color = 'r')
+    plt.axvline(350)
+    plt.show()
+
+    recorte1 = foto[260:300, 350:650, 0]
+    recorte2 = foto[350:390, 350:650, 0]
+
+    sig = np.sum(recorte1, axis = 0)
+    sig = sig - np.mean(sig)
+    plt.plot(sig)
+    plt.show()
+
+    fsig = np.fft.fft(sig)
+    freqsig = np.fft.fftfreq(len(sig), d = 1)
+    nsig = len(np.abs(fsig))
+
+    indsig = np.argmax(np.abs(fsig)[:nsig//2])
+    plt.scatter(freqsig[indsig], np.abs(fsig)[indsig], color = 'r')
+    plt.plot(freqsig[:nsig//2], np.abs(fsig)[:nsig//2])
+    print(freqsig[indsig])
+    plt.show()
+
+    fas1, fas2 = fase_hilbert(recorte1, recorte2, 0.09333333333333334)
+
+    print(fas1, fas2)
+
+analizar = True
+
+if analizar:
+        fases1 = []
+        fases2 = []
+        for i in np.arange(0, 255, 5):
+            imag = cv2.imread(f'data/fase_gamma_lineal_383/0809_I{i}_T20.png')
+            recorte1 = imag[260:300, 350:650, 0]
+            recorte2 = imag[350:390, 350:650, 0]
+
+            fase1, fase2 = fase_hilbert(recorte1, recorte2, 0.09)
+            fases1.append(fase1)
+            fases2.append(fase2)
+        fases1 = np.array(fases1)
+        fases2 = np.array(fases2)
+
+        exp_1 = np.exp(1j*fases1)
+        exp_2 = np.exp(1j*fases2)
+        dif = np.unwrap(np.angle(exp_1/exp_2))
+
+        datos = pd.DataFrame(np.unwrap(dif))
+        datos.to_csv('Calibracion_SLM/data/fase_medida_lineal_383_picoround.csv', index = False) 
+        max_int = 51
+        plt.scatter(np.arange(0, 255, 5)[:max_int], dif[:max_int]-min(dif[:max_int]))
+        plt.xlabel('Valor de gris')
+        plt.ylabel('Fase [rad]')
+        plt.axhline(2*np.pi)
+        # plt.savefig('Calibracion_SLM/data/curva.png')
+        plt.show()
+
+# cur = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal_3raronda.csv')
+# cur = np.array(cur)
+# plt.scatter(np.arange(0, 255, 5), cur-min(cur))
+# plt.scatter(np.arange(0, 255, 5), dif-min(dif))
 # plt.show()
 
-# recorte1 = foto[180:220, 350:650, 0]
-# recorte2 = foto[300:340, 350:650, 0]
-
-# sig = np.sum(recorte1, axis = 0)
-# sig = sig - np.mean(sig)
-# plt.plot(sig)
+# #######################
+# gris = np.arange(256)
+# lut = np.round(np.linspace(0, 383, 256)).astype(int)
+# # print(lut)
+# plt.plot(gris, lut)
 # plt.show()
 
-# fsig = np.fft.fft(sig)
-# freqsig = np.fft.fftfreq(len(sig), d = 1)
-# nsig = len(np.abs(fsig))
+# lut_gamma = np.zeros(1024, dtype=np.uint16)
+# for i in range(256):
+#     for j in range(4):
+#         lut_gamma[4*i+j] = int(lut[i])
 
-# indsig = np.argmax(np.abs(fsig)[:nsig//2])
-# plt.scatter(freqsig[indsig], np.abs(fsig)[indsig], color = 'r')
-# plt.plot(freqsig[:nsig//2], np.abs(fsig)[:nsig//2])
-# print(freqsig[indsig])
+# plt.scatter(np.arange(1024), lut_gamma)
 # plt.show()
 
-# fas1, fas2 = fase_hilbert(recorte1, recorte2, 0.09333333333333334)
-
-# print(fas1, fas2)
-fases1 = []
-fases2 = []
-for i in np.arange(0, 255, 5):
-    imag = cv2.imread(f'data/fase_gamma_lineal/0209_I{i}_T21.png')
-    recorte1 = imag[180:220, 350:650, 0]
-    recorte2 = imag[300:340, 350:650, 0]
-
-    fase1, fase2 = fase_hilbert(recorte1, recorte2, 0.09333333333333334)
-    fases1.append(fase1)
-    fases2.append(fase2)
-fases1 = np.array(fases1)
-fases2 = np.array(fases2)
-
-exp_1 = np.exp(1j*fases1)
-exp_2 = np.exp(1j*fases2)
-dif = np.unwrap(np.angle(exp_1/exp_2))
-
-# datos = pd.DataFrame(np.unwrap(dif))
-# datos.to_csv('Calibracion_SLM/data/fase_medida_lineal_real.csv', index = False) 
-max_int = 33
-plt.scatter(np.arange(0, 255, 5)[:max_int], dif[:max_int]-min(dif[:max_int]))
-plt.xlabel('Valor de gris')
-plt.ylabel('Fase [rad]')
-plt.axhline(2*np.pi)
-# plt.savefig('Calibracion_SLM/data/ejemplo_cali.png')
-plt.show()
-
-# pru = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal.csv')
-# print(pru)
-# pru = np.array(pru)
-# plt.scatter(np.arange(0, 255, 5), pru-min(pru), color = 'r')
-# plt.show()
+# curva_gamma = pd.DataFrame(lut_gamma)
+# print(curva_gamma)
+# curva_gamma.to_csv('curva_gamma_lineal_383.csv', header=None, index=False)
