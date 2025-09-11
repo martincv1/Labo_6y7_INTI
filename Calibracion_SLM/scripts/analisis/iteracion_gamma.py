@@ -10,7 +10,7 @@ from gamma_curver import GammaCurver
 #Importo la gamma curve actual
 
 # df = pd.read_csv("/home/lorenzo/Labo_6/SLM_csvs/5-6_C20_lin2,1pi_532nm_274-148V.csv", header = None)
-fase_medida = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal_383_picoround.csv')
+fase_medida = pd.read_csv('Calibracion_SLM/data/fase_medida_lineal_383.csv')
 fase_medida = np.array(fase_medida.iloc[:,0])
 fase_medida= fase_medida-min(fase_medida)
 print(fase_medida)
