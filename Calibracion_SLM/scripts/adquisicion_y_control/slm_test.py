@@ -15,8 +15,8 @@ if prueba:
 
 # SLM.close   # no funciona
 
-patron = SLM.crear_patron(resol_SLM, "horizontal", "sup", 210)
+patron = SLM.crear_patron(resol_SLM, "horizontal", "sup", 240)
 SLM.mostrar_patron(patron)
 time.sleep(180)
 
-#patron = SLM.crear_patron(resol_SLM, "horizontal", "sup", 250)
+# patron = SLM.crear_patron(resol_SLM, "horizontal", "sup", 250)

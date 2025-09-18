@@ -16,3 +16,9 @@ __pycache__/
 
 # VSCode
 .vscode/
+
+# Ignoro librerias de SDK de adquisicion
+**/HEDS/*
+**/hedslib/*
+**/lib/*
+
