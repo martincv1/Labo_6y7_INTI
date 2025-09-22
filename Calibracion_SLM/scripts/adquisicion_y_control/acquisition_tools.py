@@ -264,8 +264,10 @@ class jai_camera:
         if self.verbose or override_verbose:
             if doodle_it:
                 print(
-                    f"{self.doodle[self.doodle_index]} {message}", end="\r",
-                    *args, **kwargs,
+                    f"{self.doodle[self.doodle_index]} {message}",
+                    end="\r",
+                    *args,
+                    **kwargs,
                 )
                 self._roll_doodle()
             else:
@@ -335,7 +337,6 @@ class jai_camera:
         for i in range(cantidad):
             do_this_queue = (i != cantidad - 1) or do_queue
             image_data = self.get_frame(do_queue=do_this_queue)
-
             imgs.append(image_data)
 
         return imgs

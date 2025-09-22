@@ -2,6 +2,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 from acquisition_tools import jai_camera
 
@@ -10,26 +11,23 @@ BUFFER_COUNT = 16
 
 camera = jai_camera(buffers=BUFFER_COUNT)
 
+
+while True:
+    camera.reset_queue()
+    frame = camera.get_frame()
+    cv2.imshow("frame", frame)
+    time.sleep(0.5)
+
+
 print("Camera ready")
-flag = True
-while flag:
-    frame1, frame2 = camera.get_multiple_frame(2)
-
-    if isinstance(frame1, np.ndarray):
-        flag = False
-    if isinstance(frame2, np.ndarray):
-        flag = False
-
-    print(
-        f" {camera.frame_rate_val:.1f} FPS  {camera.bandwidth_val / 1000000.0:.1f} Mb/s     "
-    )
-
-frame1 = frame1.astype(np.float32)
-frame2 = frame2.astype(np.float32)
-mean_diff = np.mean(np.abs(frame1 - frame2))
-print(mean_diff)
-plt.imshow(frame1 - frame2)
+frames = camera.get_multiple_frame(10)
+plt.imshow(frames[9])
 plt.show()
+print(frames[0])
+# # mean_diff = np.mean(np.abs(frame1 - frame2))
+# print(mean_diff)
+# plt.imshow(frame1 - frame2)
+# plt.show()
 camera.close()
 
 # cv2.imshow("foto1", frame1)

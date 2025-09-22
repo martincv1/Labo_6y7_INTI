@@ -472,55 +472,83 @@ if analizar:
     plt.savefig(plot_path)
     plt.show()
 
+chequeo_imgs_picos = False
+if chequeo_imgs_picos:
+    for i in np.arange(256):
+        for j in range(10):
+            foto = cv2.imread(
+                f"data/seleccion_de_tensiones/24-c5 0.69-1.42/ims_gamma_lineal_pasos1/2209_I{i}_T21_{j}.png"
+            )
+            recorte1 = foto[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
+            recorte2 = foto[
+                inicio_y + gap_y + alto : inicio_y + gap_y + 2 * alto,
+                inicio_x : inicio_x + ancho,
+                0,
+            ]
+            sig = np.sum(recorte1, axis=0)
+            sig = sig - np.mean(sig)
+            if j == 0:
+                sig_0 = sig
+            fsig = np.fft.fft(sig)
+            freqsig = np.fft.fftfreq(len(sig), d=1)
+            nsig = len(np.abs(fsig))
+            indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 4]) + nsig // 20
+            plt.scatter(
+                freqsig[indsig],
+                np.abs(fsig)[indsig],
+                color="r",
+                label=f"{i} {j}",
+            )
+            plt.plot(freqsig[: nsig // 2], np.abs(fsig)[: nsig // 2])
+            plt.ylim(0, 150000)
+            # plt.plot(sig, label=f"{i} {j}")
+            plt.legend()
+            print(np.max(np.abs(sig - sig_0)))
+            plt.pause(0.05)
+            plt.cla()
 
-for i in range(256):
-    for j in range(10):
-        foto = cv2.imread(
-            f"data/seleccion_de_tensiones/24-c4 0.69-1.42/ims_gamma_lineal_pasos5/1809_I{i}_T21_{j}.png"
-        )
-        recorte1 = foto[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
-        recorte2 = foto[
-            inicio_y + gap_y + alto : inicio_y + gap_y + 2 * alto,
-            inicio_x : inicio_x + ancho,
-            0,
-        ]
-        sig = np.sum(recorte1, axis=0)
-        sig = sig - np.mean(sig)
-        if j == 0:
-            sig_0 = sig
-        fsig = np.fft.fft(sig)
-        freqsig = np.fft.fftfreq(len(sig), d=1)
-        nsig = len(np.abs(fsig))
-        indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 4]) + nsig // 20
-        plt.scatter(
-            freqsig[indsig],
-            np.abs(fsig)[indsig],
-            color="r",
-            label=f"{i} {j}, {np.max(np.abs(sig - sig_0))}",
-        )
-        plt.plot(freqsig[: nsig // 2], np.abs(fsig)[: nsig // 2])
-        plt.ylim(0, 220000)
-        plt.legend()
-        print(np.max(np.abs(sig - sig_0)))
-        plt.pause(0.01)
-        plt.cla()
 
+# ********************************
+filtrado = True
+cant_muestras = 10
+if filtrado:
+    for i in range(256):
+        j_img_buena = []
+        for j in range(cant_muestras):
+            foto = cv2.imread(
+                f"data/seleccion_de_tensiones/24-c5 0.69-1.42/ims_gamma_lineal_pasos1/2209_I{i}_T21_{j}.png"
+            )
+            recorte1 = foto[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
+            recorte2 = foto[
+                inicio_y + gap_y + alto : inicio_y + gap_y + 2 * alto,
+                inicio_x : inicio_x + ancho,
+                0,
+            ]
+            sig = np.sum(recorte1, axis=0)
+            sig = sig - np.mean(sig)
+            fsig = np.fft.fft(sig)
+            freqsig = np.fft.fftfreq(len(sig), d=1)
+            nsig = len(np.abs(fsig))
+            fsig_normalized = np.abs(fsig) / np.max(np.abs(fsig))
+            picos, _ = find_peaks(fsig_normalized[0 : nsig // 2], height=0.5)
+            indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 4]) + nsig // 20
+            valor_pico1 = freqsig[indsig]
 
-# #######################
-# gris = np.arange(256)
-# lut = np.round(np.linspace(0, 383, 256)).astype(int)
-# # print(lut)
-# plt.plot(gris, lut)
-# plt.show()
+            if len(picos) == 2:
+                ratio_picks = fsig_normalized[picos[0]] / fsig_normalized[picos[1]]
+                cota = 0.6
+                if ratio_picks >= cota:
+                    j_img_buena.append(j)
+        for h in j_img_buena:
+            img_4K = np.sum()  # hasta aca llegamos
 
-# lut_gamma = np.zeros(1024, dtype=np.uint16)
-# for i in range(256):
-#     for j in range(4):
-#         lut_gamma[4*i+j] = int(lut[i])
-
-# plt.scatter(np.arange(1024), lut_gamma)
-# plt.show()
-
-# curva_gamma = pd.DataFrame(lut_gamma)
-# print(curva_gamma)
-# curva_gamma.to_csv('curva_gamma_lineal_383.csv', header=None, index=False)
+            plt.plot(
+                freqsig[0 : nsig // 2],
+                np.abs(fsig)[0 : nsig // 2],
+                label=f"gris{i}muestra{j}",
+            )
+            plt.scatter(freqsig[picos], np.abs(fsig)[picos])
+            plt.ylim(0, 150000)
+            plt.legend()
+            plt.pause(0.1)
+            plt.cla()
