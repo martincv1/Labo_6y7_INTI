@@ -9,19 +9,37 @@ SLM_GRAYSCALE_N = 256
 
 
 class GammaCurver:
-
+    """Clase para suavizar y hacer monótona la curva gamma medida de un SLM."""
     def __init__(
         self,
         phase_measurement: np.ndarray,
         current_gamma_curve: np.ndarray,
         graylevels: Union[np.ndarray, None] = None,
+        method: str = "smooth",
         verbose: bool = False,
     ):
+        """
+        Inicializa la clase GammaCurver con los parámetros dados.
+
+        Parameters
+        ----------
+        phase_measurement : np.ndarray
+            Array con las mediciones de fase.
+        current_gamma_curve : np.ndarray
+            Array con la curva gamma actual puesta en el SLM.
+        graylevels : Union[np.ndarray, None], optional
+            Array con los grises de la curva gamma. Si no se proporciona, se asumirá que son los grises de la gamma.
+        method : str, optional
+            Método para estimar la curva. Puede ser "lsq" o "smooth" (default).
+        verbose : bool, optional
+            Si se debe imprimir información adicional. Por defecto es False.
+        """
         assert np.issubdtype(current_gamma_curve.dtype, np.integer)
         self.graylevels = graylevels
         self.verbose = verbose
         self.phase_measurement = phase_measurement
         self.current_gamma_curve = current_gamma_curve
+        self.method = method
         self._initialize_graylevels()
         self.splines_available = False
         self._tolerance_knots = 0.5
@@ -39,6 +57,10 @@ class GammaCurver:
 
     @tolerance_knots.setter
     def tolerance_knots(self, value):
+        """
+        Tolerancia para la elección de los knots de la spline.
+        Debe estar entre 0 y 0.5.
+        """
         assert 0 < value < 0.5
         self._tolerance_knots = value
 
@@ -129,6 +151,26 @@ class GammaCurver:
         values = args[4]
         return np.sum((spline(x_pos) - values) ** 2)
 
+    @staticmethod
+    def _fun_constraint_smooth(x, *args) -> float:
+        return args[5] - GammaCurver._fun_min(x, *args)
+
+    @staticmethod
+    def _fun_min_abs_derivative(x, *args) -> float:
+        STEP_JUMP = 0.001
+        spline = GammaCurver._get_spline_from_fit(x, *args)
+        derivative = spline.derivative(args[2])
+        inner_knots_Djump = derivative(GammaCurver._get_central_knots(spline) + STEP_JUMP) - derivative(
+            GammaCurver._get_central_knots(spline) - STEP_JUMP
+        )
+        return np.sum(np.abs(inner_knots_Djump) ** 2)
+
+    @staticmethod
+    def _get_central_knots(spline):
+        t = spline.tck[0]
+        k = spline.k
+        return t[k + 1:-k - 1]
+
     def _get_seed_and_bounds(self):
         if self.n_middle_knots > 0:
             middle_knots = self.tck[0][self.k_spline + 1:self.k_spline + 1 + self.n_middle_knots]
@@ -160,14 +202,21 @@ class GammaCurver:
 
         self._add_knots()
 
-        args = (self.tck[0], self.n_middle_knots, self.k_spline, self.lut_levels, self.phase_measurement)
+        args = (self.tck[0], self.n_middle_knots, self.k_spline, self.lut_levels, self.phase_measurement, self.s_spline)
 
         x0, bounds = self._get_seed_and_bounds()
 
         constraint = {"type": "ineq", "fun": GammaCurver._fun_constraint, "args": args}
+        if self.method == "lsq":
+            cost_function = GammaCurver._fun_min
+        elif self.method == "smooth":
+            constraint = [constraint, {"type": "ineq", "fun": GammaCurver._fun_constraint_smooth, "args": args}]
+            cost_function = GammaCurver._fun_min_abs_derivative
+        else:
+            raise ValueError("Método no reconocido. Use 'lsq' o 'smooth'.")
 
         res = minimize(
-            GammaCurver._fun_min, x0, args=args, bounds=bounds, constraints=constraint, method="COBYLA",
+            cost_function, x0, args=args, bounds=bounds, constraints=constraint, method="COBYLA",
             options={"maxiter": 1000}
         )
 
@@ -217,7 +266,8 @@ class GammaCurver:
         assert self.current_gamma_curve is not None, "No se indicó una curva gamma con la que se obtuvo el ajuste"
         self.pretended_angles = np.linspace(0, self.max_angle, SLM_GRAYSCALE_N, endpoint=False)
 
-        fun = lambda x: self.spline_constrained(x) - self.pretended_angles
+        def fun(x):
+            return self.spline_constrained(x) - self.pretended_angles
         res = root(fun, self.current_gamma_curve, method="hybr")
 
         assert res.success, "No se pudo encontrar la curva gamma lineal"
@@ -240,7 +290,10 @@ class GammaCurver:
         axs[1].plot(x, self.new_angles, label='Ángulos obtenidos', linewidth=2)
         MaxError = np.max(np.abs(self.new_angles - self.pretended_angles))
         RMSE = np.sqrt(np.mean(np.square(self.new_angles - self.pretended_angles)))
-        axs[1].text(0.5, 0.9, f"MaxError: {MaxError:.3f}. RMSE: {RMSE:.3f}", ha="center", transform=axs[1].transAxes, fontsize=12)
+        axs[1].text(
+            0.5, 0.9, f"MaxError: {MaxError:.3f}. RMSE: {RMSE:.3f}", ha="center",
+            transform=axs[1].transAxes, fontsize=12,
+        )
         axs[1].legend()
         plt.tight_layout()
         plt.show()
