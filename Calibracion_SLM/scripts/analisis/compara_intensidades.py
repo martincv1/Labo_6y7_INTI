@@ -6,7 +6,6 @@ import cv2
 img = cv2.imread(f'fotos_rot/3004_I200_2_T22_r.png')
 
 
-
 print(np.arange(0, 255, 25))
 
 ancho = 400
@@ -16,8 +15,8 @@ y1 = 100
 x2 = 200
 y2 = 350
 
-rec1 = img[y1:y1+alto, x1:x1+ancho]
-rec2 = img[y2:y2+alto, x2:x2+ancho]
+rec1 = img[y1 : y1 + alto, x1 : x1 + ancho]
+rec2 = img[y2 : y2 + alto, x2 : x2 + ancho]
 fig, ax = plt.subplots()
 ax.imshow(img, cmap='gray')
 
@@ -36,15 +35,15 @@ if corre:
     inten2 = np.zeros(256)
     for i in range(256):
         imagen = cv2.imread(f'fotos_rot/3004_I{i}_2_T22_r.png')
-        recorte1 = imagen[y1:y1+alto, x1:x1+ancho]
-        recorte2 = imagen[y2:y2+alto, x2:x2+ancho]
+        recorte1 = imagen[y1 : y1 + alto, x1 : x1 + ancho]
+        recorte2 = imagen[y2 : y2 + alto, x2 : x2 + ancho]
         inten1[i] = np.mean(recorte1)
         inten2[i] = np.mean(recorte2)
         print(i)
     plt.plot(inten1)
     plt.plot(inten2)
-    plt.show()  
-    dif = inten1-inten2
+    plt.show()
+    dif = inten1 - inten2
     plt.plot(dif)
     plt.show()
     print(np.var(dif))

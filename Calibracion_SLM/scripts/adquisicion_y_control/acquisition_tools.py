@@ -5,19 +5,22 @@ import warnings
 import time
 import numpy as np
 
-#las del SLM
+# las del SLM
 import HEDS
 from hedslib.heds_types import *
 
+
 class holoeye_SLM:
-    def __init__(self, version=(4,0), preview=True):
+    def __init__(self, version=(4, 0), preview=True):
         # Inicializo el SDK
         err = HEDS.SDK.Init(*version)
         assert err == HEDS.HEDSERR_NoError, HEDS.SDK.ErrorString(err)
 
         # Inicializo el SLM
         self.slm = HEDS.SLM.Init("", preview, 0.0)
-        assert self.slm.errorCode() == HEDS.HEDSERR_NoError, HEDS.SDK.ErrorString(self.slm.errorCode())
+        assert self.slm.errorCode() == HEDS.HEDSERR_NoError, HEDS.SDK.ErrorString(
+            self.slm.errorCode()
+        )
 
     def crear_patron(self, resolucion, orientacion, mitad, intensidad):
         grayscale_array = np.zeros(resolucion, dtype=np.uint8)
@@ -52,7 +55,9 @@ class holoeye_SLM:
 
 
 class jai_camera:
-    def __init__(self, buffers=1, verbose=False, n_retry_retrieve=5, retry_wait_time=0.5):
+    def __init__(
+        self, buffers=1, verbose=False, n_retry_retrieve=5, retry_wait_time=0.5
+    ):
         self.buffers = buffers
         self.verbose = verbose
         self.n_retry_retrieve = n_retry_retrieve
@@ -96,9 +101,13 @@ class jai_camera:
     def _result_ok_or_error(self, result: eb.PvResult, message: str, check=None):
         if not check:
             if not result.IsOK():
-                raise Exception(f"{message}: {result.GetCodeString()} ({result.GetDescription()})")
+                raise Exception(
+                    f"{message}: {result.GetCodeString()} ({result.GetDescription()})"
+                )
         elif result.GetCode() != check:
-            raise Exception(f"{message}: {result.GetCodeString()} ({result.GetDescription()})")
+            raise Exception(
+                f"{message}: {result.GetCodeString()} ({result.GetDescription()})"
+            )
 
     def _connect_to_device(self):
         # Connect to the GigE Vision or USB3 Vision device
@@ -119,7 +128,9 @@ class jai_camera:
             result = self.device.NegotiatePacketSize()
             self._result_ok_or_error(result, "Unable to negotiate packet size")
             # Configure device streaming destination
-            result = self.device.SetStreamDestination(self.stream.GetLocalIPAddress(), self.stream.GetLocalPort())
+            result = self.device.SetStreamDestination(
+                self.stream.GetLocalIPAddress(), self.stream.GetLocalPort()
+            )
             self._result_ok_or_error(result, "Unable to set stream destination")
 
     def _configure_stream_buffers(self):
@@ -145,8 +156,13 @@ class jai_camera:
         # Queue all buffers in the stream
         for pvbuffer in self.buffer_list:
             result = self.stream.QueueBuffer(pvbuffer)
-            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
-        self.print(f"Created {buffer_count} buffers", override_verbose=buffer_count != self.buffers)
+            self._result_ok_or_error(
+                result, "Unable to queue buffer", check=eb.PV_PENDING
+            )
+        self.print(
+            f"Created {buffer_count} buffers",
+            override_verbose=buffer_count != self.buffers,
+        )
 
     def _initt(self):
         # Conectar camara, empezar stream y chequear que todo conectó o empezó bien
@@ -162,25 +178,39 @@ class jai_camera:
             image = pvbuffer.GetImage()
 
         elif payload_type == eb.PvPayloadTypeChunkData:
-            self.print(f" Chunk Data payload type with {pvbuffer.GetChunkCount()} chunks")
+            self.print(
+                f" Chunk Data payload type with {pvbuffer.GetChunkCount()} chunks"
+            )
 
         elif payload_type == eb.PvPayloadTypeRawData:
-            self.print(f" Raw Data with {pvbuffer.GetRawData().GetPayloadLength()} bytes")
+            self.print(
+                f" Raw Data with {pvbuffer.GetRawData().GetPayloadLength()} bytes"
+            )
 
         elif payload_type == eb.PvPayloadTypeMultiPart:
-            self.print(f" Multi Part with {pvbuffer.GetMultiPartContainer().GetPartCount()} parts")
+            self.print(
+                f" Multi Part with {pvbuffer.GetMultiPartContainer().GetPartCount()} parts"
+            )
 
         elif payload_type == eb.PvPayloadTypePleoraCompressed:
             if eb.PvDecompressionFilter.IsCompressed(pvbuffer):
-                result, pixel_type, width, height = eb.PvDecompressionFilter.GetOutputFormatFor(pvbuffer)
+                result, pixel_type, width, height = (
+                    eb.PvDecompressionFilter.GetOutputFormatFor(pvbuffer)
+                )
                 if result.IsOK():
-                    calculated_size = eb.PvImage.GetPixelSize(pixel_type) * width * height / 8
+                    calculated_size = (
+                        eb.PvImage.GetPixelSize(pixel_type) * width * height / 8
+                    )
                     out_buffer = eb.PvBuffer()
-                    result, decompressed_buffer = self.decompression_filter.Execute(pvbuffer, out_buffer)
+                    result, decompressed_buffer = self.decompression_filter.Execute(
+                        pvbuffer, out_buffer
+                    )
                     image = decompressed_buffer.GetImage()
                     if result.IsOK():
                         decompressed_size = decompressed_buffer.GetSize()
-                        compression_ratio = decompressed_size / pvbuffer.GetAcquiredSize()
+                        compression_ratio = (
+                            decompressed_size / pvbuffer.GetAcquiredSize()
+                        )
                         if calculated_size != decompressed_size:
                             self.errors = self.errors + 1
                         self.print(
@@ -188,35 +218,55 @@ class jai_camera:
                             f" Errors: {self.errors}",
                         )
                     else:
-                        self.print(" Could not decompress (Pleora compressed)", override_verbose=True)
+                        self.print(
+                            " Could not decompress (Pleora compressed)",
+                            override_verbose=True,
+                        )
                         self.errors = self.errors + 1
                 else:
-                    self.print(" Could not read header (Pleora compressed)", override_verbose=True)
+                    self.print(
+                        " Could not read header (Pleora compressed)",
+                        override_verbose=True,
+                    )
                     self.errors = self.errors + 1
             else:
-                self.print(" Contents do not match payload type (Pleora compressed)", override_verbose=True)
+                self.print(
+                    " Contents do not match payload type (Pleora compressed)",
+                    override_verbose=True,
+                )
                 self.errors = self.errors + 1
 
         else:
-            self.print(" Payload type not supported by this sample", override_verbose=True)
+            self.print(
+                " Payload type not supported by this sample", override_verbose=True
+            )
         return image
 
     def buffer_check(self, result: eb.PvResult, operational_result: eb.PvResult):
         # Chequeo si el buffer adquirió un resultado útil o no
         if not result.IsOK():
-            self.print(f"{result.GetCodeString()}      ", doodle_it=True, override_verbose=True)
-            warnings.warn('Buffer no adquirido')
+            self.print(
+                f"{result.GetCodeString()}      ", doodle_it=True, override_verbose=True
+            )
+            warnings.warn("Buffer no adquirido")
             return False
         if not operational_result.IsOK():
-            self.print(f"{operational_result.GetCodeString()}       ", doodle_it=True, override_verbose=True)
-            warnings.warn('Buffer mal adquirido')
+            self.print(
+                f"{operational_result.GetCodeString()}       ",
+                doodle_it=True,
+                override_verbose=True,
+            )
+            warnings.warn("Buffer mal adquirido")
             return False
         return True
 
     def print(self, message, override_verbose=False, doodle_it=False, *args, **kwargs):
         if self.verbose or override_verbose:
             if doodle_it:
-                print(f"{self.doodle[self.doodle_index]} {message}", end='\r', *args, **kwargs)
+                print(
+                    f"{self.doodle[self.doodle_index]} {message}", end="\r",
+                    *args, **kwargs,
+                )
                 self._roll_doodle()
             else:
                 print(message, *args, **kwargs)
@@ -236,7 +286,9 @@ class jai_camera:
             if self.buffer_check(result, operational_result):
                 break
             result = self.stream.QueueBuffer(pvbuffer)
-            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
+            self._result_ok_or_error(
+                result, "Unable to queue buffer", check=eb.PV_PENDING
+            )
             time.sleep(self.retry_wait_time)
             tries += 1
 
@@ -258,7 +310,9 @@ class jai_camera:
         if do_queue:
             # Re-queue the pvbuffer in the stream object
             result = self.stream.QueueBuffer(pvbuffer)  # Acá manda el buffer a buscar
-            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
+            self._result_ok_or_error(
+                result, "Unable to queue buffer", check=eb.PV_PENDING
+            )
 
         return image_data
 
@@ -275,6 +329,16 @@ class jai_camera:
 
         average_image = (image_sum / n_average).astype(image_data.dtype)
         return average_image
+
+    def get_multiple_frame(self, cantidad, do_queue=True):
+        imgs = []
+        for i in range(cantidad):
+            do_this_queue = (i != cantidad - 1) or do_queue
+            image_data = self.get_frame(do_queue=do_this_queue)
+
+            imgs.append(image_data)
+
+        return imgs
 
     def close(self):
         # Tell the device to stop sending images.
@@ -305,4 +369,6 @@ class jai_camera:
 
         if pvbuffer:
             result = self.stream.QueueBuffer(pvbuffer)
-            self._result_ok_or_error(result, "Unable to queue buffer", check=eb.PV_PENDING)
+            self._result_ok_or_error(
+                result, "Unable to queue buffer", check=eb.PV_PENDING
+            )
