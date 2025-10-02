@@ -11,12 +11,12 @@ from scipy.interpolate import interp1d
 
 # df = pd.read_csv("/home/lorenzo/Labo_6/SLM_csvs/5-6_C20_lin2,1pi_532nm_274-148V.csv", header = None)
 fase_medida = pd.read_csv(
-    "Calibracion_SLM/data/fase_medida_corregida_1809_1.csv", header=None
+    "Calibracion_SLM/data/fase_medida_corregida_1809_3.csv", header=None
 )
 fase_medida = np.array(fase_medida.iloc[:, 0])
 fase_medida = fase_medida - min(fase_medida)
 print(fase_medida)
-gamma_en_slm = pd.read_csv("gamma_corregida_1809_1.csv", header=None)
+gamma_en_slm = pd.read_csv("gamma_corregida_1809_3.csv", header=None)
 print(gamma_en_slm)
 # df = df.astype(np.uint16)
 # print(df)
@@ -39,7 +39,7 @@ curva_gamma_256 = curva_gamma_256.ravel()
 g = GammaCurver(
     phase_measurement=fase_medida,
     current_gamma_curve=curva_gamma_256,
-    graylevels=np.arange(0, 255, 5),
+    graylevels=np.arange(256),
     verbose=True,
 )
 
@@ -51,13 +51,13 @@ plt.xlabel("LUT")
 plt.ylabel("Fase[rad]")
 plt.show()
 
-tol = 0.1
+tol = 0
 fases = np.linspace(
     g.initial_spline((np.max(curva_gamma_256) - np.min(curva_gamma_256)) / 2)
-    - np.pi
+    - (np.pi - (np.pi / 256))
     - tol,
     g.initial_spline((np.max(curva_gamma_256) - np.min(curva_gamma_256)) / 2)
-    + np.pi
+    + (np.pi - (np.pi / 256))
     + tol,
     256,
 )
@@ -98,6 +98,6 @@ plt.xlabel("Valor de gris extendido")
 plt.ylabel("LUT")
 plt.show()
 
-df_gamma = pd.DataFrame(nueva_gamma_1024)
-print(df_gamma)
-df_gamma.to_csv("gamma_corregida_1809_2.csv", index=False, header=None)
+# df_gamma = pd.DataFrame(nueva_gamma_1024)
+# print(df_gamma)
+# df_gamma.to_csv("gamma_corregida_1809_4.csv", index=False, header=None)

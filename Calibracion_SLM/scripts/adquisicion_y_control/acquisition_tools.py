@@ -9,6 +9,8 @@ import numpy as np
 import HEDS
 from hedslib.heds_types import *
 
+DEVICE_SELECT = 0
+
 
 class holoeye_SLM:
     def __init__(self, version=(4, 0), preview=True):
@@ -166,7 +168,7 @@ class jai_camera:
 
     def _initt(self):
         # Conectar camara, empezar stream y chequear que todo conectó o empezó bien
-        self.connection_ID = psu.PvSelectDevice()
+        self.connection_ID = psu.PvSelectDevice(DEVICE_SELECT)
         if not self.connection_ID:
             raise Exception("Error al seleccionar ID")
         self._connect_to_device()
@@ -284,21 +286,20 @@ class jai_camera:
         operational_result: eb.PvResult
         while tries <= self.n_retry_retrieve:
             result, pvbuffer, operational_result = self.stream.RetrieveBuffer(1000)
-            self.print("Buffer retrieved")
             if self.buffer_check(result, operational_result):
                 break
             result = self.stream.QueueBuffer(pvbuffer)
             self._result_ok_or_error(
-                result, "Unable to queue buffer", check=eb.PV_PENDING
+                result, "\nUnable to queue buffer", check=eb.PV_PENDING
             )
             time.sleep(self.retry_wait_time)
             tries += 1
 
         # We now have a valid pvbuffer. This is where you would typically process the pvbuffer.
         result, self.frame_rate_val = self.frame_rate.GetValue()
-        self._result_ok_or_error(result, "Unable to read frame rate value.")
+        self._result_ok_or_error(result, "\nUnable to read frame rate value.")
         result, self.bandwidth_val = self.bandwidth.GetValue()
-        self._result_ok_or_error(result, "Unable to read bandwidth value.")
+        self._result_ok_or_error(result, "\nUnable to read bandwidth value.")
         self.print(f"BlockID: {pvbuffer.GetBlockID():016d}", doodle_it=True)
 
         image = None
@@ -369,7 +370,9 @@ class jai_camera:
             result, pvbuffer, lOperationalResult = self.stream.RetrieveBuffer()
 
         if pvbuffer:
-            result = self.stream.QueueBuffer(pvbuffer)
-            self._result_ok_or_error(
-                result, "Unable to queue buffer", check=eb.PV_PENDING
-            )
+            available_to_queue = self.stream.GetQueuedBufferMaximum()
+            for _ in range(available_to_queue):
+                result = self.stream.QueueBuffer(pvbuffer)
+                self._result_ok_or_error(
+                    result, "Unable to queue buffer", check=eb.PV_PENDING
+                )

@@ -375,16 +375,16 @@ if fasevolt:
 
 show_ubicar_pico = False
 # *******************************************************************
-img_path_format = r"data\seleccion_de_tensiones\24-c3 0.69-1.42\ims_gamma_lineal_pasos5\1809_I{}_T21.png"
-indice_foto_prueba = 95
-image_path_prueba = img_path_format.format(indice_foto_prueba)
+img_path_format = r"data\repetibilidad\12 0.69-1.42\imgs\3009_I{}_T21_{}.png"
+indice_foto_prueba = 150
+image_path_prueba = img_path_format.format(indice_foto_prueba, 0)
 foto = cv2.imread(image_path_prueba)
 dir_imgs = os.path.dirname(image_path_prueba)
 dir_parent = os.path.dirname(dir_imgs)
 
 
-inicio_x = 600
-inicio_y = 260
+inicio_x = 200
+inicio_y = 470
 gap_y = 50
 ancho = 350
 alto = 40
@@ -418,6 +418,7 @@ if show_ubicar_pico:
     plt.scatter(freqsig[indsig], np.abs(fsig)[indsig], color="r")
     plt.plot(freqsig[: nsig // 2], np.abs(fsig)[: nsig // 2])
     plt.axvline(freqsig[nsig // 20])
+    plt.axvline(freqsig[nsig // 7])
     print(freqsig[indsig])
     plt.show()
 
@@ -477,7 +478,7 @@ if chequeo_imgs_picos:
     for i in np.arange(256):
         for j in range(10):
             foto = cv2.imread(
-                f"data/seleccion_de_tensiones/24-c5 0.69-1.42/ims_gamma_lineal_pasos1/2209_I{i}_T21_{j}.png"
+                f"data/repetibilidad/1 0.69-1.42/imgs/3009_I{i}_T21_{j}.png"
             )
             recorte1 = foto[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
             recorte2 = foto[
@@ -500,7 +501,7 @@ if chequeo_imgs_picos:
                 label=f"{i} {j}",
             )
             plt.plot(freqsig[: nsig // 2], np.abs(fsig)[: nsig // 2])
-            plt.ylim(0, 150000)
+            plt.ylim(0, 25000)
             # plt.plot(sig, label=f"{i} {j}")
             plt.legend()
             print(np.max(np.abs(sig - sig_0)))
@@ -509,12 +510,14 @@ if chequeo_imgs_picos:
 
 
 # ********************************
-filtrado = True
+filtrado = False
 cant_muestras = 10
+j_img_buena = {}
 if filtrado:
     for i in range(256):
-        j_img_buena = []
+        j_img_buena[i] = []
         for j in range(cant_muestras):
+            print(i, j)
             foto = cv2.imread(
                 f"data/seleccion_de_tensiones/24-c5 0.69-1.42/ims_gamma_lineal_pasos1/2209_I{i}_T21_{j}.png"
             )
@@ -530,25 +533,173 @@ if filtrado:
             freqsig = np.fft.fftfreq(len(sig), d=1)
             nsig = len(np.abs(fsig))
             fsig_normalized = np.abs(fsig) / np.max(np.abs(fsig))
-            picos, _ = find_peaks(fsig_normalized[0 : nsig // 2], height=0.5)
+            picos, props = find_peaks(
+                fsig_normalized[0 : nsig // 4], height=0.5, prominence=0.3
+            )
             indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 4]) + nsig // 20
             valor_pico1 = freqsig[indsig]
 
-            if len(picos) == 2:
-                ratio_picks = fsig_normalized[picos[0]] / fsig_normalized[picos[1]]
-                cota = 0.6
-                if ratio_picks >= cota:
-                    j_img_buena.append(j)
-        for h in j_img_buena:
-            img_4K = np.sum()  # hasta aca llegamos
+            if len(picos) == 1:
+                prominences = props["prominences"]
+                if prominences[0] > 0.5:
+                    j_img_buena[i].append(j)
 
-            plt.plot(
-                freqsig[0 : nsig // 2],
-                np.abs(fsig)[0 : nsig // 2],
-                label=f"gris{i}muestra{j}",
+            # #plt.plot(
+            #     freqsig[0 : nsig // 2],
+            #     np.abs(fsig)[0 : nsig // 2],
+            #     label=f"gris{i}muestra{j}",
+            # )
+            # #plt.scatter(freqsig[picos], np.abs(fsig)[picos])
+            # #plt.ylim(0, 150000)
+            # #plt.legend()
+            # plt.pause(0.1)
+            # plt.cla()
+
+# # print(j_img_buena)
+# foto_prueba = cv2.imread(f"data/repetibilidad/1 0.69-1.42/imgs/3009_I{10}_T21_{8}.png")
+# recorte1 = foto_prueba[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
+# recorte2 = foto_prueba[
+#     inicio_y + gap_y + alto : inicio_y + gap_y + 2 * alto,
+#     inicio_x : inicio_x + ancho,
+#     0,
+# ]
+# sig = np.sum(recorte1, axis=0)
+# sig = sig - np.mean(sig)
+# fsig = np.fft.fft(sig)
+# freqsig = np.fft.fftfreq(len(sig), d=1)
+# nsig = len(np.abs(fsig))
+# fsig_normalized = np.abs(fsig) / np.max(np.abs(fsig))
+# tope = nsig // 7
+# picos, props = find_peaks(
+#     fsig_normalized[nsig // 20 : tope], height=0.5, prominence=0.5
+# )
+# picos += nsig // 20
+# print(props)
+# plt.plot(freqsig[0 : nsig // 2], np.abs(fsig)[0 : nsig // 2])
+# plt.scatter(freqsig[picos], np.abs(fsig)[picos])
+# plt.axvline(freqsig[tope])
+# plt.ylim(0, 20000)
+# plt.show()
+# indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 4]) + nsig // 20
+# valor_pico1 = freqsig[indsig]
+
+
+# *****************************
+new_analisis = False
+cant_muestras = 10
+
+
+if new_analisis:
+    exp_1 = []
+    exp_2 = []
+    indices = []
+    for i in np.arange(256):
+        fases_1j = []
+        fases_2j = []
+        for j in range(cant_muestras):
+            print(i, j)
+            this_image_path = img_path_format.format(i, j)
+            imag = cv2.imread(this_image_path)
+            recorte1 = imag[inicio_y : inicio_y + alto, inicio_x : inicio_x + ancho, 0]
+            recorte2 = imag[
+                inicio_y + gap_y + alto : inicio_y + gap_y + 2 * alto,
+                inicio_x : inicio_x + ancho,
+                0,
+            ]
+
+            sig = np.sum(recorte1, axis=0)
+            sig = sig - np.mean(sig)
+            fsig = np.fft.fft(sig)
+            freqsig = np.fft.fftfreq(len(sig), d=1)
+            nsig = len(np.abs(fsig))
+            fsig_normalized = np.abs(fsig) / np.max(np.abs(fsig))
+            picos, props = find_peaks(
+                fsig_normalized[nsig // 20 : nsig // 7],
+                height=0.5,
+                prominence=0.3,
+                distance=50,
             )
-            plt.scatter(freqsig[picos], np.abs(fsig)[picos])
-            plt.ylim(0, 150000)
-            plt.legend()
-            plt.pause(0.1)
-            plt.cla()
+            indsig = np.argmax(np.abs(fsig)[nsig // 20 : nsig // 7]) + nsig // 20
+            valor_pico1 = freqsig[indsig]
+
+            if len(picos) == 1:
+                prominences = props["prominences"]
+                if prominences[0] > 0.5:
+                    fase1j, fase2j = fase_hilbert(recorte1, recorte2, freqsig[indsig])
+                    print(fase1j, fase2j)
+                    fases_1j.append(fase1j)
+                    fases_2j.append(fase2j)
+            else:
+                print("no hay un solo pico", len(picos))
+        if fases_1j:
+            fases_1j = np.array(fases_1j)
+            fases_2j = np.array(fases_2j)
+
+            exp_1j = np.mean(np.exp(1j * fases_1j))
+            exp_2j = np.mean(np.exp(1j * fases_2j))
+            exp_1.append(exp_1j)
+            exp_2.append(exp_2j)
+            indices.append(i)
+    exp_1 = np.array(exp_1)
+    exp_2 = np.array(exp_2)
+    dif = np.unwrap(np.angle(exp_2 / exp_1))
+
+    # datos = pd.DataFrame(np.unwrap(dif))
+    # datos.to_csv(
+    #     "Calibracion_SLM/data/fase_medida_corregida_1809_4.csv",
+    #     header=None,
+    #     index=False,
+    # )
+
+    fig, ax = plt.subplots(1, 2, figsize=(8, 4))
+    ax[0].scatter(
+        indices,
+        dif - min(dif),
+        label=f"{np.max(dif-min(dif))}",
+    )
+    ax[0].set_xlabel("Valor de gris")
+    ax[0].set_ylabel("Fase [rad]")
+    ax[0].axhline(2 * np.pi)
+    ax[0].legend()
+    print(indices)
+
+    # ax[1].scatter(np.arange(256)[:-1], np.diff(dif))
+    plot_path = os.path.join(dir_parent, "fasevsgris.pdf")
+    # plt.savefig(plot_path)
+    plt.show()
+    # repe = pd.DataFrame(data=(indices, dif))
+    # df = repe.transpose()
+    # df.to_csv("data/repetibilidad/13 0.69-1.42/fasevsgris_13.csv")
+    print(df)
+
+cali = np.zeros((256, 11))
+counter = 0
+for i in [2, 4, 5, 6, 7, 8, 9, 10, 11, 12]:  # 1 tiene 255 pero salio bien, 3 midio mal
+    dato = pd.read_csv(f"data/repetibilidad/{i} 0.69-1.42/fasevsgris_{i}.csv")
+    dato = dato.iloc[:, 1:]
+    cali[:, counter] = dato["1"] - min(dato["1"])
+    print(len(dato["0"]))
+    plt.errorbar(
+        dato["0"], dato["1"] - min(dato["1"]), fmt="o", markersize=2, alpha=0.6
+    )
+    counter += 1
+plt.axhline(2 * np.pi)
+plt.ylabel("Fase [rad]")
+plt.xlabel("Valor de gris")
+# plt.savefig("data/repetibilidad/fasevsgris_todas.png")
+plt.show()
+
+cali_mean = np.mean(cali, axis=1)
+cali_std = np.std(cali, axis=1)
+plt.errorbar(
+    np.arange(256),
+    cali_mean,
+    yerr=cali_std,
+    fmt="o",
+    markersize=2,
+    alpha=0.6,
+)
+plt.axhline(2 * np.pi)
+plt.ylabel("Fase [rad]")
+plt.xlabel("Valor de gris")
+plt.show()
