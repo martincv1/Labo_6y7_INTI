@@ -2,6 +2,9 @@ import numpy as np
 import cv2
 from scipy.signal import hilbert, find_peaks
 from scipy.optimize import curve_fit
+from skimage import draw
+from scipy.ndimage import gaussian_filter
+
 
 def rotate_bound(image, angle):
     # grab the dimensions of the image and then determine the
@@ -23,7 +26,8 @@ def rotate_bound(image, angle):
     # perform the actual rotation and return the image
     return cv2.warpAffine(image, M, (nW, nH))
 
-def fase_hilbert(recorte1, recorte2, filter_frec, filter_band = 0.01):
+
+def fase_hilbert(recorte1, recorte2, filter_frec, filter_band=0.01):
     signal1 = np.sum(recorte1, axis=0)
     signal2 = np.sum(recorte2, axis=0)
     signal1 = signal1 - np.mean(signal1)
@@ -32,7 +36,9 @@ def fase_hilbert(recorte1, recorte2, filter_frec, filter_band = 0.01):
     f_signal1 = np.fft.fft(signal1)
     f_signal2 = np.fft.fft(signal2)
     frecuencias = np.fft.fftfreq(len(signal1), d=1)
-    gauss_mask = np.exp(-0.5 * ((frecuencias - filter_frec) / filter_band)**2) + np.exp(-0.5 * ((frecuencias + filter_frec) / filter_band)**2)
+    gauss_mask = np.exp(
+        -0.5 * ((frecuencias - filter_frec) / filter_band) ** 2
+    ) + np.exp(-0.5 * ((frecuencias + filter_frec) / filter_band) ** 2)
     fft_filtrada1 = f_signal1 * gauss_mask
     fft_filtrada2 = f_signal2 * gauss_mask
     filtra1 = np.fft.ifft(fft_filtrada1).real
@@ -42,17 +48,29 @@ def fase_hilbert(recorte1, recorte2, filter_frec, filter_band = 0.01):
     hil2 = hilbert(filtra2)
     lin1 = np.unwrap(np.angle(hil1))
     lin2 = np.unwrap(np.angle(hil2))
-    inf = int(round(0.1*len(lin1)))
-    sup = int(round(0.9*len(lin1)))
+    inf = int(round(0.1 * len(lin1)))
+    sup = int(round(0.9 * len(lin1)))
     lin1_ajust = lin1[inf:sup]
     lin2_ajust = lin2[inf:sup]
-    popt1, pcov1 = curve_fit(lambda x, m, c: m*x+c, np.arange(inf, sup), lin1_ajust)
-    popt2, pcov2 = curve_fit(lambda x, m, c: m*x+c, np.arange(inf, sup), lin2_ajust)
+    popt1, pcov1 = curve_fit(lambda x, m, c: m * x + c, np.arange(inf, sup), lin1_ajust)
+    popt2, pcov2 = curve_fit(lambda x, m, c: m * x + c, np.arange(inf, sup), lin2_ajust)
 
     return popt1[1], popt2[1]
 
-def simular_imagen(Nx=640, Ny=512, angulo_slm_max=1, slm_ancho=500, slm_alto=350, angulo_franjas_max=5,
-                   fase1=0, fase2=np.pi, frecuencia=10, fotones_por_cuenta=5, amplitud_imperfecciones=0.25):
+
+def simular_imagen(
+    Nx=640,
+    Ny=512,
+    angulo_slm_max=1,
+    slm_ancho=500,
+    slm_alto=350,
+    angulo_franjas_max=5,
+    fase1=0,
+    fase2=np.pi,
+    frecuencia=10,
+    fotones_por_cuenta=5,
+    amplitud_imperfecciones=0.25,
+):
     """
     Simula una imagen con un SLM (Spatial Light Modulator) rotados aleatoriamente y con franjas de interferencia con
     fase distinta para las mitades superior e inferior.
@@ -79,8 +97,12 @@ def simular_imagen(Nx=640, Ny=512, angulo_slm_max=1, slm_ancho=500, slm_alto=350
     """
 
     theta = np.radians(np.random.uniform(-angulo_slm_max, angulo_slm_max))
-    theta_franjas = np.radians(90 + np.random.uniform(-angulo_franjas_max, angulo_franjas_max))
-    rotacion = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    theta_franjas = np.radians(
+        90 + np.random.uniform(-angulo_franjas_max, angulo_franjas_max)
+    )
+    rotacion = np.array(
+        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+    )
     x = np.arange(Nx)
     y = np.arange(Ny)
     xy = np.meshgrid(x, y)
@@ -106,19 +128,45 @@ def simular_imagen(Nx=640, Ny=512, angulo_slm_max=1, slm_ancho=500, slm_alto=350
     ymin = np.min([esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]])
     ymax = np.max([esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]])
     if not (0 <= xmin < Nx and 0 <= xmax < Nx and 0 <= ymin < Ny and 0 <= ymax < Ny):
-        raise ValueError('El slm girado no entra en la imagen')
+        raise ValueError("El slm girado no entra en la imagen")
     # Calcular fase de superficie imperfecta
-    fase_imperfecta = gaussian_filter(np.random.randn(Ny, Nx), sigma=100, mode='reflect')
-    fase_imperfecta = fase_imperfecta / np.max(fase_imperfecta) * amplitud_imperfecciones * 2 * np.pi
+    fase_imperfecta = gaussian_filter(
+        np.random.randn(Ny, Nx), sigma=100, mode="reflect"
+    )
+    fase_imperfecta = (
+        fase_imperfecta / np.max(fase_imperfecta) * amplitud_imperfecciones * 2 * np.pi
+    )
 
     # Generar la imagen
     imagen = np.zeros((Ny, Nx))
-    imagen[slm1] = np.sin(2 * np.pi * frecuencia * (np.sin(theta_franjas) * x_rot[slm1] / Nx +
-                                                    np.cos(theta_franjas) * y_rot[slm1] / Ny)
-                          + fase1 + fase_imperfecta[slm1]) + 1
-    imagen[slm2] = np.sin(2 * np.pi * frecuencia * (np.sin(theta_franjas) * x_rot[slm2] / Nx +
-                                                    np.cos(theta_franjas) * y_rot[slm2] / Ny)
-                          + fase2 + fase_imperfecta[slm2]) + 1
+    imagen[slm1] = (
+        np.sin(
+            2
+            * np.pi
+            * frecuencia
+            * (
+                np.sin(theta_franjas) * x_rot[slm1] / Nx
+                + np.cos(theta_franjas) * y_rot[slm1] / Ny
+            )
+            + fase1
+            + fase_imperfecta[slm1]
+        )
+        + 1
+    )
+    imagen[slm2] = (
+        np.sin(
+            2
+            * np.pi
+            * frecuencia
+            * (
+                np.sin(theta_franjas) * x_rot[slm2] / Nx
+                + np.cos(theta_franjas) * y_rot[slm2] / Ny
+            )
+            + fase2
+            + fase_imperfecta[slm2]
+        )
+        + 1
+    )
     imagen[slm1 | slm2] *= 120
 
     # Agregamos el contorno del SLM
@@ -126,8 +174,10 @@ def simular_imagen(Nx=640, Ny=512, angulo_slm_max=1, slm_ancho=500, slm_alto=350
     esquina_2 = np.round(esquina_2).astype(int)
     esquina_3 = np.round(esquina_3).astype(int)
     esquina_4 = np.round(esquina_4).astype(int)
-    rr, cc = draw.polygon_perimeter([esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]],
-                                    [esquina_1[0], esquina_2[0], esquina_3[0], esquina_4[0]])
+    rr, cc = draw.polygon_perimeter(
+        [esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]],
+        [esquina_1[0], esquina_2[0], esquina_3[0], esquina_4[0]],
+    )
     imagen[rr, cc] = 255
     # Agregamos ruido de poisson
     imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta
