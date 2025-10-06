@@ -1,9 +1,32 @@
 import numpy as np
 import cv2
 from scipy.signal import hilbert, find_peaks
+from scipy.signal import windows
 from scipy.optimize import curve_fit
 from skimage import draw
 from scipy.ndimage import gaussian_filter
+import matplotlib.pyplot as plt
+
+
+def gaussian_2d_window_scipy(shape, std_dev=1):
+    """
+    Generates a 2D Gaussian window using SciPy's 1D Gaussian window.
+
+    Args:
+        shape (tuple): The shape of the window.
+        std_dev (float): The standard deviation of the Gaussian (relative to the window size). Default is 1.
+
+    Returns:
+        numpy.ndarray: A 2D array representing the Gaussian window.
+    """
+    # Create a 1D Gaussian window
+    gaussian_1d_r = windows.gaussian(shape[0], std=std_dev * shape[0])  # Use shape[0] for rows
+    gaussian_1d_c = windows.gaussian(shape[1], std=std_dev * shape[1])  # Use shape[1] for columns
+
+    # Create the 2D Gaussian window by taking the outer product
+    gaussian_window_2d = np.outer(gaussian_1d_r, gaussian_1d_c)
+
+    return gaussian_window_2d
 
 
 def rotate_bound(image, angle):
@@ -70,6 +93,7 @@ def simular_imagen(
     frecuencia=10,
     fotones_por_cuenta=5,
     amplitud_imperfecciones=0.25,
+    sigma_imperfecciones=100,
 ):
     """
     Simula una imagen con un SLM (Spatial Light Modulator) rotados aleatoriamente y con franjas de interferencia con
@@ -88,6 +112,7 @@ def simular_imagen(
                         número de ciclos que entra en un ancho de imagen. Default es 10.
     fotones_por_cuenta (int): Número de fotones que se generan por cada punto del SLM. Default es 5.
     amplitud_imperfecciones (float): Amplitud de las imperfecciones aleatorias en la imagen. Default es 0.25.
+    sigma_imperfecciones (float): Desviación estándar del filtro gaussiano aplicado a las imperfecciones. Default es 100.
 
     Retorna:
     numpy.ndarray: Imagen simulada como un array de 2D numpy de tipo uint8.
@@ -96,7 +121,7 @@ def simular_imagen(
     ValueError: Si el SLM rotado no entra dentro de la imagen.
     """
 
-    theta = np.radians(np.random.uniform(-angulo_slm_max, angulo_slm_max))
+    theta = np.radians(np.random.normal(0, angulo_slm_max))
     theta_franjas = np.radians(
         90 + np.random.uniform(-angulo_franjas_max, angulo_franjas_max)
     )
@@ -131,57 +156,51 @@ def simular_imagen(
         raise ValueError("El slm girado no entra en la imagen")
     # Calcular fase de superficie imperfecta
     fase_imperfecta = gaussian_filter(
-        np.random.randn(Ny, Nx), sigma=100, mode="reflect"
+        np.random.randn(Ny, Nx), sigma=sigma_imperfecciones, mode="reflect"
     )
-    fase_imperfecta = (
-        fase_imperfecta / np.max(fase_imperfecta) * amplitud_imperfecciones * 2 * np.pi
+    palangana_centrada = gaussian_2d_window_scipy((Ny, Nx), std_dev=0.5)
+
+    fase_imperfecta_centrada = fase_imperfecta * palangana_centrada
+    fase_imperfecta_centrada = (
+        fase_imperfecta_centrada / (np.max(fase_imperfecta_centrada) - np.min(fase_imperfecta_centrada)) * amplitud_imperfecciones * 2 * np.pi
     )
 
-    # Generar la imagen
-    imagen = np.zeros((Ny, Nx))
-    imagen[slm1] = (
-        np.sin(
-            2
-            * np.pi
-            * frecuencia
-            * (
-                np.sin(theta_franjas) * x_rot[slm1] / Nx
-                + np.cos(theta_franjas) * y_rot[slm1] / Ny
-            )
-            + fase1
-            + fase_imperfecta[slm1]
+    imagenes = []
+    for fase2_i in fase2:
+        # Generar las imagenes
+        imagen = np.zeros((Ny, Nx))
+        imagen[slm1] = (
+            np.sin(
+                2 * np.pi * frecuencia * (
+                    np.sin(theta_franjas) * x_rot[slm1] / Nx
+                    + np.cos(theta_franjas) * y_rot[slm1] / Ny
+                ) + fase1 + fase_imperfecta[slm1]
+            ) + 1
         )
-        + 1
-    )
-    imagen[slm2] = (
-        np.sin(
-            2
-            * np.pi
-            * frecuencia
-            * (
-                np.sin(theta_franjas) * x_rot[slm2] / Nx
-                + np.cos(theta_franjas) * y_rot[slm2] / Ny
-            )
-            + fase2
-            + fase_imperfecta[slm2]
+        imagen[slm2] = (
+            np.sin(
+                2 * np.pi * frecuencia * (
+                    np.sin(theta_franjas) * x_rot[slm2] / Nx
+                    + np.cos(theta_franjas) * y_rot[slm2] / Ny
+                ) + fase2_i + fase_imperfecta[slm2]
+            ) + 1
         )
-        + 1
-    )
-    imagen[slm1 | slm2] *= 120
+        imagen[slm1 | slm2] *= 120
 
-    # Agregamos el contorno del SLM
-    esquina_1 = np.round(esquina_1).astype(int)
-    esquina_2 = np.round(esquina_2).astype(int)
-    esquina_3 = np.round(esquina_3).astype(int)
-    esquina_4 = np.round(esquina_4).astype(int)
-    rr, cc = draw.polygon_perimeter(
-        [esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]],
-        [esquina_1[0], esquina_2[0], esquina_3[0], esquina_4[0]],
-    )
-    imagen[rr, cc] = 255
-    # Agregamos ruido de poisson
-    imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta
-    imagen[imagen > 255] = 255
-    imagen = imagen.astype(np.uint8)
+        # Agregamos el contorno del SLM
+        esquina_1 = np.round(esquina_1).astype(int)
+        esquina_2 = np.round(esquina_2).astype(int)
+        esquina_3 = np.round(esquina_3).astype(int)
+        esquina_4 = np.round(esquina_4).astype(int)
+        rr, cc = draw.polygon_perimeter(
+            [esquina_1[1], esquina_2[1], esquina_3[1], esquina_4[1]],
+            [esquina_1[0], esquina_2[0], esquina_3[0], esquina_4[0]],
+        )
+        imagen[rr, cc] = 255
+        # Agregamos ruido de poisson
+        imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta
+        imagen[imagen > 255] = 255
+        imagen = imagen.astype(np.uint8)
+        imagenes.append(imagen)
 
-    return imagen
+    return imagenes
