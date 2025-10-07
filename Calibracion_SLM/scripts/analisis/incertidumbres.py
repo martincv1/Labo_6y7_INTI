@@ -7,10 +7,13 @@ import tqdm
 
 sigma_imperfecciones = 200
 amplitud_imperfecciones = 4
-angulo_franjas_max = 0.5
+angulo_franjas_max = 3
 
 imagenes = simular_imagen(
-    frecuencia=100, angulo_franjas_max=angulo_franjas_max, angulo_slm_max=0, fase2=[np.pi, 0],
+    frecuencia=100,
+    angulo_franjas_max=angulo_franjas_max,
+    angulo_slm_max=0,
+    fase2=[np.pi, 0],
     amplitud_imperfecciones=amplitud_imperfecciones,
     sigma_imperfecciones=sigma_imperfecciones,
 )
@@ -25,8 +28,8 @@ y_rec2 = 270
 plt.imshow(np.array(imagenes[1]))
 plt.show()
 
-n_pruebas = 200
-iteracion_incertidumbre = False
+n_pruebas = 1000
+iteracion_incertidumbre = True
 imagen = np.array(imagenes[0])
 recorte1 = imagen[y_rec1 : y_rec1 + altura_rec, x_rec1 : x_rec1 + ancho_rec]
 recorte2 = imagen[y_rec2 : y_rec2 + altura_rec, x_rec2 : x_rec2 + ancho_rec]
@@ -69,7 +72,7 @@ if iteracion_incertidumbre:
     diferencias = np.zeros(n_pruebas)
     iterator = tqdm.tqdm(range(n_pruebas))
     for i in iterator:
-        fase = random.uniform(- np.pi, np.pi)
+        fase = random.uniform(-np.pi, np.pi)
         imagenes = simular_imagen(
             frecuencia=100,
             angulo_franjas_max=angulo_franjas_max,
@@ -81,15 +84,25 @@ if iteracion_incertidumbre:
         # plt.imshow(imagen)
         # plt.pause(.01)
         # plt.cla()
-        recorte1_0 = imagenes[0][y_rec1 : y_rec1 + altura_rec, x_rec1 : x_rec1 + ancho_rec]
-        recorte2_0 = imagenes[0][y_rec2 : y_rec2 + altura_rec, x_rec2 : x_rec2 + ancho_rec]
+        recorte1_0 = imagenes[0][
+            y_rec1 : y_rec1 + altura_rec, x_rec1 : x_rec1 + ancho_rec
+        ]
+        recorte2_0 = imagenes[0][
+            y_rec2 : y_rec2 + altura_rec, x_rec2 : x_rec2 + ancho_rec
+        ]
         c1_0, c2_0 = fase_hilbert(recorte1_0, recorte2_0, filter_frec=pico_frec)
-        recorte1_fase = imagenes[1][y_rec1 : y_rec1 + altura_rec, x_rec1 : x_rec1 + ancho_rec]
-        recorte2_fase = imagenes[1][y_rec2 : y_rec2 + altura_rec, x_rec2 : x_rec2 + ancho_rec]
-        c1_fase, c2_fase = fase_hilbert(recorte1_fase, recorte2_fase, filter_frec=pico_frec)
+        recorte1_fase = imagenes[1][
+            y_rec1 : y_rec1 + altura_rec, x_rec1 : x_rec1 + ancho_rec
+        ]
+        recorte2_fase = imagenes[1][
+            y_rec2 : y_rec2 + altura_rec, x_rec2 : x_rec2 + ancho_rec
+        ]
+        c1_fase, c2_fase = fase_hilbert(
+            recorte1_fase, recorte2_fase, filter_frec=pico_frec
+        )
         diferencia_0 = np.angle(np.exp(1j * c1_0) / np.exp(1j * c2_0))
         diferencia_fase = np.angle(np.exp(1j * c1_fase) / np.exp(1j * c2_fase))
-        diferencias[i] = np.angle(np.exp(1j * diferencia_fase) / np.exp(1j * diferencia_0) / np.exp(1j * fase))
+        diferencias[i] = np.angle(np.exp(1j * (diferencia_fase - diferencia_0 - fase)))
     rmsd = np.sqrt(np.mean(diferencias**2))
     print(f"RMSD: {rmsd} rad")
     plt.hist(diferencias, bins=30)
