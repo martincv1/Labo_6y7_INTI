@@ -94,6 +94,8 @@ def simular_imagen(
     fotones_por_cuenta=5,
     amplitud_imperfecciones=0.25,
     sigma_imperfecciones=100,
+    parasitic_fringes_amplitude=0,
+    parasitic_fringes_frequency=0.25
 ):
     """
     Simula una imagen con un SLM (Spatial Light Modulator) rotados aleatoriamente y con franjas de interferencia con
@@ -107,12 +109,14 @@ def simular_imagen(
     slm_alto (int): Altura del SLM en píxeles. Default es 350.
     angulo_franjas_max (float): Ángulo máximo de rotación de las franjas en grados. Default es 5.
     fase1 (float): Fase inicial para la primera mitad del SLM. Default es 0.
-    fase2 (float): Fase inicial para la segunda mitad del SLM. Default es pi.
+    fase2 (list o float): Fase inicial para la segunda mitad del SLM. Default es pi.
     frecuencia (float): Frecuencia espacial de las franjas en el SLM. Debe ser un valor positivo que represente el
                         número de ciclos que entra en un ancho de imagen. Default es 10.
     fotones_por_cuenta (int): Número de fotones que se generan por cada punto del SLM. Default es 5.
     amplitud_imperfecciones (float): Amplitud de las imperfecciones aleatorias en la imagen. Default es 0.25.
     sigma_imperfecciones (float): Desviación estándar del filtro gaussiano aplicado a las imperfecciones. Default es 100.
+    parasitic_fringes_amplitude (float): Amplitud de las franjas parásticas con respecto a 1 (Haz de referencia). Default es 0.
+    parasitic_fringes_frequency (float): Frecuencia de las franjas parásticas (normalizada, entre 0 y 0.5). Default es 0.25.
 
     Retorna:
     numpy.ndarray: Imagen simulada como un array de 2D numpy de tipo uint8.
@@ -121,6 +125,8 @@ def simular_imagen(
     ValueError: Si el SLM rotado no entra dentro de la imagen.
     """
 
+    if isinstance(fase2, float):
+        fase2 = [fase2]
     theta = np.radians(np.random.normal(0, angulo_slm_max))
     theta_franjas = np.radians(
         90 + np.random.uniform(-angulo_franjas_max, angulo_franjas_max)
@@ -170,22 +176,25 @@ def simular_imagen(
         # Generar las imagenes
         imagen = np.zeros((Ny, Nx))
         imagen[slm1] = (
-            np.sin(
-                2 * np.pi * frecuencia * (
+            1 + parasitic_fringes_amplitude * np.exp(
+                2 * np.pi * parasitic_fringes_frequency * x_rot[slm1] / Nx) +
+            np.exp(1j * (2 * np.pi * frecuencia * (
                     np.sin(theta_franjas) * x_rot[slm1] / Nx
                     + np.cos(theta_franjas) * y_rot[slm1] / Ny
-                ) + fase1 + fase_imperfecta[slm1]
-            ) + 1
+                ) + fase1 + fase_imperfecta[slm1])
+            )
         )
         imagen[slm2] = (
-            np.sin(
-                2 * np.pi * frecuencia * (
+            1 + parasitic_fringes_amplitude * np.exp(
+                2 * np.pi * parasitic_fringes_frequency * x_rot[slm1] / Nx) +
+            np.exp(1j * (2 * np.pi * frecuencia * (
                     np.sin(theta_franjas) * x_rot[slm2] / Nx
                     + np.cos(theta_franjas) * y_rot[slm2] / Ny
-                ) + fase2_i + fase_imperfecta[slm2]
-            ) + 1
+                ) + fase2_i + fase_imperfecta[slm2])
+            )
         )
-        imagen[slm1 | slm2] *= 120
+        imagen = np.abs(imagen)**2
+        imagen = imagen / np.max(imagen) * 255        
 
         # Agregamos el contorno del SLM
         esquina_1 = np.round(esquina_1).astype(int)
@@ -198,9 +207,10 @@ def simular_imagen(
         )
         imagen[rr, cc] = 255
         # Agregamos ruido de poisson
-        imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta
+        imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta        
+
         imagen[imagen > 255] = 255
         imagen = imagen.astype(np.uint8)
         imagenes.append(imagen)
 
-    return imagenes
+    return imagenes if len(imagenes) > 1 else imagenes[0]
