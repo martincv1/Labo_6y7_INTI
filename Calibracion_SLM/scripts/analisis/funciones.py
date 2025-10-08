@@ -50,11 +50,15 @@ def rotate_bound(image, angle):
     return cv2.warpAffine(image, M, (nW, nH))
 
 
-def fase_hilbert(recorte1, recorte2, filter_frec, filter_band=0.01):
-    signal1 = np.sum(recorte1, axis=0)
-    signal2 = np.sum(recorte2, axis=0)
-    signal1 = signal1 - np.mean(signal1)
-    signal2 = signal2 - np.mean(signal2)
+def get_signal_from_recorte(recorte):
+    signal = np.sum(recorte, axis=0)
+    signal = signal - np.mean(signal)
+    return signal
+
+
+def fase_hilbert(recorte1, recorte2, filter_frec, filter_band=0.01, debug=False):
+    signal1 = get_signal_from_recorte(recorte1)
+    signal2 = get_signal_from_recorte(recorte2)
 
     f_signal1 = np.fft.fft(signal1)
     f_signal2 = np.fft.fft(signal2)
@@ -75,8 +79,24 @@ def fase_hilbert(recorte1, recorte2, filter_frec, filter_band=0.01):
     sup = int(round(0.9 * len(lin1)))
     lin1_ajust = lin1[inf:sup]
     lin2_ajust = lin2[inf:sup]
-    popt1, pcov1 = curve_fit(lambda x, m, c: m * x + c, np.arange(inf, sup), lin1_ajust)
-    popt2, pcov2 = curve_fit(lambda x, m, c: m * x + c, np.arange(inf, sup), lin2_ajust)
+    xs = np.arange(inf, sup)
+    popt1, pcov1 = curve_fit(lambda x, m, c: m * x + c, xs, lin1_ajust)
+    popt2, pcov2 = curve_fit(lambda x, m, c: m * x + c, xs, lin2_ajust)
+
+    if debug:
+        fig, ax = plt.subplots(1, 3, figsize=(10, 6))
+        ax[0].plot(np.abs(f_signal1), label="FFT Signal 1")
+        ax[1].plot(np.abs(fft_filtrada1), label="Filtered FFT")
+        ax[0].plot(np.abs(f_signal2), label="FFT Signal 2")
+        ax[1].plot(np.abs(fft_filtrada2), label="Filtered FFT")
+        ax[2].plot(xs, lin1_ajust, label="Phase Signal 1")
+        ax[2].plot(xs, lin2_ajust, label="Phase Signal 2")
+        ax[2].plot(xs, popt1[0] * xs + popt1[1], "r--", label="Fit Signal 1")
+        ax[2].plot(xs, popt2[0] * xs + popt2[1], "g--", label="Fit Signal 2")
+        ax[0].legend()
+        ax[1].legend()
+        ax[2].legend()
+        plt.show()
 
     return popt1[1], popt2[1]
 
@@ -90,10 +110,14 @@ def simular_imagen(
     angulo_franjas_max=5,
     fase1=0,
     fase2=np.pi,
+    visibility=0.8,
     frecuencia=10,
     fotones_por_cuenta=5,
+    imperfecciones_centradas=True,
     amplitud_imperfecciones=0.25,
     sigma_imperfecciones=100,
+    parasitic_fringes_amplitude=0,
+    parasitic_fringes_frequency=0.25
 ):
     """
     Simula una imagen con un SLM (Spatial Light Modulator) rotados aleatoriamente y con franjas de interferencia con
@@ -107,12 +131,16 @@ def simular_imagen(
     slm_alto (int): Altura del SLM en píxeles. Default es 350.
     angulo_franjas_max (float): Ángulo máximo de rotación de las franjas en grados. Default es 5.
     fase1 (float): Fase inicial para la primera mitad del SLM. Default es 0.
-    fase2 (float): Fase inicial para la segunda mitad del SLM. Default es pi.
+    fase2 (list o float): Fase inicial para la segunda mitad del SLM. Default es pi.
+    visibility (float): Visibilidad de las franjas de interferencia. Default es 0.8.
     frecuencia (float): Frecuencia espacial de las franjas en el SLM. Debe ser un valor positivo que represente el
                         número de ciclos que entra en un ancho de imagen. Default es 10.
     fotones_por_cuenta (int): Número de fotones que se generan por cada punto del SLM. Default es 5.
+    imperfecciones_centradas (bool): Indica si las imperfecciones son centradas. Default es True.
     amplitud_imperfecciones (float): Amplitud de las imperfecciones aleatorias en la imagen. Default es 0.25.
     sigma_imperfecciones (float): Desviación estándar del filtro gaussiano aplicado a las imperfecciones. Default es 100.
+    parasitic_fringes_amplitude (float): Amplitud de las franjas parásticas con respecto a 1 (Haz de referencia). Default es 0.
+    parasitic_fringes_frequency (float): Frecuencia de las franjas parásticas (normalizada, entre 0 y 0.5). Default es 0.25.
 
     Retorna:
     numpy.ndarray: Imagen simulada como un array de 2D numpy de tipo uint8.
@@ -121,6 +149,8 @@ def simular_imagen(
     ValueError: Si el SLM rotado no entra dentro de la imagen.
     """
 
+    if isinstance(fase2, float):
+        fase2 = [fase2]
     theta = np.radians(np.random.normal(0, angulo_slm_max))
     theta_franjas = np.radians(
         90 + np.random.uniform(-angulo_franjas_max, angulo_franjas_max)
@@ -158,34 +188,34 @@ def simular_imagen(
     fase_imperfecta = gaussian_filter(
         np.random.randn(Ny, Nx), sigma=sigma_imperfecciones, mode="reflect"
     )
-    palangana_centrada = gaussian_2d_window_scipy((Ny, Nx), std_dev=0.5)
+    if imperfecciones_centradas:
+        palangana_centrada = gaussian_2d_window_scipy((Ny, Nx), std_dev=0.5)
 
-    fase_imperfecta_centrada = fase_imperfecta * palangana_centrada
-    fase_imperfecta_centrada = (
-        fase_imperfecta_centrada / (np.max(fase_imperfecta_centrada) - np.min(fase_imperfecta_centrada)) * amplitud_imperfecciones * 2 * np.pi
+        fase_imperfecta = fase_imperfecta * palangana_centrada
+    fase_imperfecta = (
+        fase_imperfecta / (np.max(fase_imperfecta) - np.min(fase_imperfecta)) * amplitud_imperfecciones * 2 * np.pi
     )
 
     imagenes = []
     for fase2_i in fase2:
         # Generar las imagenes
-        imagen = np.zeros((Ny, Nx))
+        imagen = np.zeros((Ny, Nx), dtype=np.complex128)
         imagen[slm1] = (
-            np.sin(
-                2 * np.pi * frecuencia * (
-                    np.sin(theta_franjas) * x_rot[slm1] / Nx
-                    + np.cos(theta_franjas) * y_rot[slm1] / Ny
-                ) + fase1 + fase_imperfecta[slm1]
-            ) + 1
+            1 + parasitic_fringes_amplitude * np.exp(2j * np.pi * parasitic_fringes_frequency * x_rot[slm1]) + (
+                visibility * np.exp(1j * (2 * np.pi * frecuencia * (
+                    np.sin(theta_franjas) * x_rot[slm1] / Nx + np.cos(theta_franjas) * y_rot[slm1] / Ny
+                ) + fase1 + fase_imperfecta[slm1]))
+            )
         )
         imagen[slm2] = (
-            np.sin(
-                2 * np.pi * frecuencia * (
-                    np.sin(theta_franjas) * x_rot[slm2] / Nx
-                    + np.cos(theta_franjas) * y_rot[slm2] / Ny
-                ) + fase2_i + fase_imperfecta[slm2]
-            ) + 1
+            1 + parasitic_fringes_amplitude * np.exp(2j * np.pi * parasitic_fringes_frequency * x_rot[slm2]) + (
+                visibility * np.exp(1j * (2 * np.pi * frecuencia * (
+                    np.sin(theta_franjas) * x_rot[slm2] / Nx + np.cos(theta_franjas) * y_rot[slm2] / Ny
+                ) + fase2_i + fase_imperfecta[slm2]))
+            )
         )
-        imagen[slm1 | slm2] *= 120
+        imagen = np.abs(imagen)**2
+        imagen = imagen / np.max(imagen) * 255
 
         # Agregamos el contorno del SLM
         esquina_1 = np.round(esquina_1).astype(int)
@@ -199,8 +229,9 @@ def simular_imagen(
         imagen[rr, cc] = 255
         # Agregamos ruido de poisson
         imagen = np.random.poisson(imagen * fotones_por_cuenta) / fotones_por_cuenta
+
         imagen[imagen > 255] = 255
         imagen = imagen.astype(np.uint8)
         imagenes.append(imagen)
 
-    return imagenes
+    return imagenes if len(imagenes) > 1 else imagenes[0]
