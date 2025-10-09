@@ -4,6 +4,7 @@ import lib.PvSampleUtils as psu
 import warnings
 import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 # las del SLM
 import HEDS
@@ -40,6 +41,49 @@ class holoeye_SLM:
                 grayscale_array[:, :half_width] = intensidad
             elif mitad == "der":
                 grayscale_array[:, half_width:] = intensidad
+
+        return grayscale_array
+
+    def crear_rectangulos(self, resolucion, rectangulos, mostrar=False):
+        """
+        Crea un patrón con tres rectángulos grises sobre fondo negro.
+
+        Parámetros:
+        -----------
+        resolucion : tuple
+            (alto, ancho) del patrón (en píxeles)
+        rectangulos : list of dict
+            Lista con 3 diccionarios, cada uno con las claves:
+            {
+                'x': coordenada horizontal superior izquierda,
+                'y': coordenada vertical superior izquierda,
+                'ancho': ancho del rectángulo,
+                'alto': alto del rectángulo,
+                'intensidad': valor de gris (0-255)
+            }
+        mostrar : bool, opcional
+            Si es True, muestra el patrón generado con matplotlib.
+
+        Retorna:
+        --------
+        grayscale_array : np.ndarray
+            Imagen en escala de grises con los rectángulos dibujados.
+        """
+
+        grayscale_array = np.zeros(resolucion, dtype=np.uint8)
+
+        for rect in rectangulos:
+            y0, x0 = rect["y"], rect["x"]
+            y1 = y0 + rect["alto"]
+            x1 = x0 + rect["ancho"]
+            intensidad = rect["intensidad"]
+
+            # Dibujar el rectángulo
+            grayscale_array[y0:y1, x0:x1] = intensidad
+
+        if mostrar:
+            plt.imshow(grayscale_array, cmap="gray", vmin=0, vmax=255)
+            plt.show()
 
         return grayscale_array
 
